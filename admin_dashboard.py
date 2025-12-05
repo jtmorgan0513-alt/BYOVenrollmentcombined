@@ -233,7 +233,7 @@ def _render_selection_panel(enrollments):
                     st.rerun()
             
             with col2:
-                st.caption(f"📍 {district}")
+                st.markdown(f"<span style='font-family: monospace; font-size: 14px;'>📍 District <b>{str(district).zfill(4)}</b></span>", unsafe_allow_html=True)
             
             with col3:
                 if is_approved:
