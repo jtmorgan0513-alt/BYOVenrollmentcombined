@@ -233,7 +233,7 @@ def _render_selection_panel(enrollments):
                     st.rerun()
             
             with col2:
-                st.markdown(f"<span style='font-family: \"Courier New\", monospace; font-size: 13px; font-weight: 500; letter-spacing: 0.5px; color: #555;'>📍 <span style=\"font-weight: 700; color: #0d6efd; font-size: 14px;\">{str(district).zfill(4)}</span></span>", unsafe_allow_html=True)
+                st.markdown(f"<div style='display: flex; justify-content: center; align-items: center;'><div style='background: #e3f2fd; padding: 6px 12px; border-radius: 6px; font-family: \"Courier New\", monospace; font-size: 13px; font-weight: 700; color: #0d6efd; letter-spacing: 0.5px;'>📍 {str(district).zfill(4)}</div></div>", unsafe_allow_html=True)
             
             with col3:
                 if is_approved:
