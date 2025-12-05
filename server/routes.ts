@@ -131,12 +131,20 @@ export async function registerRoutes(
     changeOrigin: true,
     ws: true,
     pathRewrite: { "^/streamlit": "" },
+    timeout: 30000,
+    proxyTimeout: 30000,
   });
   
   // Proxy all Streamlit routes under /streamlit/
-  // Note: ws: true in createProxyMiddleware automatically handles WebSocket upgrades
-  // for /streamlit paths. No manual upgrade handler needed - it would interfere with Vite HMR.
   app.use("/streamlit", streamlitProxy);
+  
+  // Explicit WebSocket upgrade handler for Streamlit connections
+  // This ensures WebSocket handshakes succeed on first load without requiring refresh
+  httpServer.on('upgrade', (req, socket, head) => {
+    if (req.url?.startsWith('/streamlit')) {
+      (streamlitProxy as any).upgrade(req, socket, head);
+    }
+  });
 
   return httpServer;
 }
