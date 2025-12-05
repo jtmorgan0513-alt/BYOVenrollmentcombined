@@ -1970,12 +1970,12 @@ def wizard_step_4():
                     # Signature positions extracted from user's marked-up PDF
                     sig_x = 73
                     sig_y = 442
-                    date_x = 316
+                    date_x = 320
                     date_y = 442
                     name_x = 261
                     name_y = 547
-                    tech_id_x = 261
-                    tech_id_y = 533
+                    tech_id_x = 264
+                    tech_id_y = 534
                     sig_width = 160
                     sig_height = 28
                     
@@ -2679,12 +2679,12 @@ def page_new_enrollment_OLD():
                 # Signature positions extracted from user's marked-up PDF
                 sig_x = st.session_state.get('sig_x', 73)
                 sig_y = st.session_state.get('sig_y', 442)
-                date_x = st.session_state.get('date_x', 316)
+                date_x = st.session_state.get('date_x', 320)
                 date_y = st.session_state.get('date_y', 442)
-                name_x = st.session_state.get('name_x', 257)
+                name_x = st.session_state.get('name_x', 261)
                 name_y = st.session_state.get('name_y', 547)
-                tech_id_x = st.session_state.get('tech_id_x', 261)
-                tech_id_y = st.session_state.get('tech_id_y', 533)
+                tech_id_x = st.session_state.get('tech_id_x', 264)
+                tech_id_y = st.session_state.get('tech_id_y', 534)
                 sig_width = st.session_state.get('sig_width', 160)
                 sig_height = st.session_state.get('sig_height', 28)
                 
@@ -3075,7 +3075,7 @@ def page_admin_settings():
     if 'sig_y' not in st.session_state:
         st.session_state.sig_y = 450
     if 'date_x' not in st.session_state:
-        st.session_state.date_x = 310
+        st.session_state.date_x = 320
     if 'date_y' not in st.session_state:
         st.session_state.date_y = 450
     
