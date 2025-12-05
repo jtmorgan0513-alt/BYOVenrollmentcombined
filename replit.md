@@ -20,10 +20,18 @@ The system comprises a dual-application setup connected via a proxy:
 **Enrollment Engine Frontend (Streamlit):** A Streamlit-based web application providing a multi-step wizard workflow (Tech Info → Vehicle & Docs → Policy & Signature → Review & Submit). Includes VIN decoding, a digital signature pad, photo/document upload, and an Admin Control Center. Performance is optimized with caching mechanisms. Special workflow for California enrollments integrates DocuSign for compliant electronic signatures.
 
 **Backend Architecture:**
-*   **Database Layer:** Primarily PostgreSQL, with SQLite/JSON fallback. Uses an abstraction layer for flexible database management.
-*   **File Storage System:** Supports both local filesystem and Replit Object Storage, with a unified interface for abstraction. Includes optimizations for photo uploads (parallel processing, compression, EXIF handling).
+*   **Database Layer:** Primarily PostgreSQL with connection pooling (ThreadedConnectionPool, min 2, max 10 connections). SQLite/JSON fallback available. Uses an abstraction layer for flexible database management.
+*   **File Storage System:** Supports both local filesystem and Replit Object Storage, with a unified interface for abstraction. Includes optimizations for photo uploads (parallel processing, compression to 1400px max, JPEG quality 65%, EXIF orientation handling).
 *   **Document Generation:** Uses ReportLab and PyPDF2 to generate enrollment PDFs with state-based templates and embedded signatures.
 *   **Notification System:** Employs SendGrid for email delivery, utilizing branded HTML templates for various notifications (submission, approval, HR, custom).
+
+**Performance Optimizations:**
+*   **Database Connection Pooling:** ThreadedConnectionPool (min 2, max 10) for efficient database access under load.
+*   **Response Compression:** Gzip compression (level 6) for all Express responses over 1KB.
+*   **Image Compression:** Automatic resizing to 1400px max dimension, JPEG compression at 65% quality.
+*   **Environment Validation:** Startup validation of critical environment variables with logging.
+*   **Streamlit Caching:** 30-second TTL cache for enrollment data, resource caching for database initialization.
+*   **Health Endpoint:** `/health` endpoint for deployment monitoring and load balancer health checks.
 
 **Data Flow & Admin Workflow:**
 Enrollment submission involves data validation, photo uploads, signature capture (or DocuSign for CA), saving to the database, PDF generation (or DocuSign request), and optional email notifications. The Admin Approval Workflow in the Streamlit dashboard provides a comprehensive interface for reviewing enrollments, managing checklists, viewing documents, and approving submissions, which triggers dashboard sync and custom email notifications.
