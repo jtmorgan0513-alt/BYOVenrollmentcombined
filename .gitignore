@@ -1,0 +1,9 @@
+node_modules/
+uploads/
+dist/
+__pycache__/
+*.log
+.env
+.replit
+.cache/
+build/

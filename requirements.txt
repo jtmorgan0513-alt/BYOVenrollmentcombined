@@ -1,0 +1,15 @@
+streamlit
+pandas
+requests
+Pillow
+reportlab
+streamlit-drawable-canvas
+PyPDF2
+streamlit-aggrid
+numpy
+google-cloud-storage
+psycopg2-binary
+urllib3
+pdf2image
+pymupdf
+certifi

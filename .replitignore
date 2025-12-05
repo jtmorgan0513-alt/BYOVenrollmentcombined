@@ -1,0 +1,17 @@
+# Exclude large folders from deployment
+uploads/
+pdfs/
+data/backups/
+data/byov.db
+attached_assets/
+
+# Exclude development files
+.git/
+*.log
+*.pyc
+__pycache__/
+.cache/
+
+# Exclude test files
+tests/
+*.test.*
