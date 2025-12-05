@@ -1,4 +1,5 @@
 import http from "http";
+import compression from "compression";
 
 const port = parseInt(process.env.PORT || "5000", 10);
 
@@ -37,6 +38,18 @@ async function loadFullApp() {
     const { serveStatic } = await import("./static");
 
     const app = express.default();
+
+    // Enable gzip compression for all responses
+    app.use(compression({
+      level: 6,
+      threshold: 1024,
+      filter: (req, res) => {
+        if (req.headers['x-no-compression']) {
+          return false;
+        }
+        return compression.filter(req, res);
+      }
+    }));
 
     app.get('/health', (_req, res) => {
       res.status(200).send('OK');

@@ -1,10 +1,12 @@
 """
 PostgreSQL database module for BYOV Enrollment Engine.
 Replaces SQLite with PostgreSQL for persistent storage across deployments.
+Uses connection pooling for optimal performance under load.
 """
 import os
 import json
 import time
+import atexit
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from contextlib import contextmanager
@@ -12,6 +14,7 @@ from functools import wraps
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from psycopg2 import pool
 
 def get_database_url():
     """Get the appropriate database URL based on environment.
@@ -29,12 +32,66 @@ DATABASE_URL = get_database_url()
 MAX_RETRIES = 3
 RETRY_DELAY = 0.5
 
+# Connection pool settings
+POOL_MIN_CONN = 2
+POOL_MAX_CONN = 10
+
+# Global connection pool
+_connection_pool = None
+
+
+def _get_pool():
+    """Get or create the connection pool (singleton pattern)."""
+    global _connection_pool
+    if _connection_pool is None and DATABASE_URL:
+        try:
+            _connection_pool = pool.ThreadedConnectionPool(
+                POOL_MIN_CONN,
+                POOL_MAX_CONN,
+                DATABASE_URL,
+                connect_timeout=10
+            )
+            # Register cleanup on exit
+            atexit.register(_cleanup_pool)
+        except Exception as e:
+            print(f"Warning: Could not create connection pool: {e}")
+            return None
+    return _connection_pool
+
+
+def _cleanup_pool():
+    """Clean up connection pool on shutdown."""
+    global _connection_pool
+    if _connection_pool:
+        try:
+            _connection_pool.closeall()
+        except Exception:
+            pass
+        _connection_pool = None
+
 
 def _create_connection():
-    """Create a new database connection with retry logic."""
+    """Get a connection from pool or create new one with retry logic."""
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL environment variable not set")
     
+    # Try to get from pool first
+    pool_instance = _get_pool()
+    if pool_instance:
+        try:
+            conn = pool_instance.getconn()
+            # Test connection is still alive
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+            return conn
+        except Exception:
+            # Connection from pool is stale, close and get new one
+            try:
+                pool_instance.putconn(conn, close=True)
+            except Exception:
+                pass
+    
+    # Fallback to direct connection with retry
     last_error = None
     for attempt in range(MAX_RETRIES):
         try:
@@ -50,9 +107,25 @@ def _create_connection():
     raise last_error if last_error else RuntimeError("Failed to connect to database")
 
 
+def _return_connection(conn):
+    """Return connection to pool or close it."""
+    pool_instance = _get_pool()
+    if pool_instance:
+        try:
+            pool_instance.putconn(conn)
+            return
+        except Exception:
+            pass
+    # If no pool or putconn failed, just close
+    try:
+        conn.close()
+    except Exception:
+        pass
+
+
 @contextmanager
 def get_connection():
-    """Context manager for database connections."""
+    """Context manager for database connections with pooling support."""
     conn = _create_connection()
     try:
         yield conn
@@ -64,10 +137,7 @@ def get_connection():
             pass
         raise
     finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
+        _return_connection(conn)
 
 
 @contextmanager
