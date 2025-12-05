@@ -13,3 +13,4 @@ urllib3
 pdf2image
 pymupdf
 certifi
+pdfplumber
