@@ -1413,25 +1413,29 @@ def wizard_step_1():
     full_name = st.text_input(
         "Full Name", 
         value=data.get('full_name', ''),
-        key="wiz_full_name"
+        key="wiz_full_name",
+        autocomplete="name"
     )
     
     tech_id = st.text_input(
         "Tech ID", 
         value=data.get('tech_id', ''),
-        key="wiz_tech_id"
+        key="wiz_tech_id",
+        autocomplete="off"
     )
     
     district = st.text_input(
         "District", 
         value=data.get('district', ''),
-        key="wiz_district"
+        key="wiz_district",
+        autocomplete="off"
     )
 
     referred_by = st.text_input(
         "Referred By",
         value=data.get('referred_by', ''),
-        key="wiz_referred_by"
+        key="wiz_referred_by",
+        autocomplete="off"
     )
     
     state_idx = 0
@@ -1507,7 +1511,8 @@ def wizard_step_2():
     vin = st.text_input(
         "VIN (Vehicle Identification Number)", 
         value=data.get('vin', ''),
-        key="wiz_vin"
+        key="wiz_vin",
+        autocomplete="off"
     )
     
     decode_clicked = st.button("Decode VIN (lookup year/make/model)")
@@ -1544,17 +1549,20 @@ def wizard_step_2():
     with col1:
         year = st.text_input(
             "Vehicle Year", 
-            key="wiz_year"
+            key="wiz_year",
+            autocomplete="off"
         )
     with col2:
         make = st.text_input(
             "Vehicle Make", 
-            key="wiz_make"
+            key="wiz_make",
+            autocomplete="off"
         )
     with col3:
         model = st.text_input(
             "Vehicle Model", 
-            key="wiz_model"
+            key="wiz_model",
+            autocomplete="off"
         )
     
     st.markdown("---")
@@ -3581,8 +3589,8 @@ def main():
                     st.markdown("Please enter your credentials to access the Admin Control Center.")
                     
                     # Use session state to track form inputs
-                    username = st.text_input("Username", key="login_username")
-                    password = st.text_input("Password", type="password", key="login_password")
+                    username = st.text_input("Username", key="login_username", autocomplete="username")
+                    password = st.text_input("Password", type="password", key="login_password", autocomplete="current-password")
                     
                     if st.button("Login", use_container_width=True, type="primary"):
                         admin_user = os.environ.get("ADMIN_USERNAME", "admin")
