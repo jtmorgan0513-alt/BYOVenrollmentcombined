@@ -209,6 +209,12 @@ def generate_signed_pdf(template_path: str, signature_image, output_path: str,
 
         can.setFont("Helvetica", 10)
         current_date = datetime.now().strftime("%m/%d/%Y")
+        
+        # Draw white rectangle to cover preprinted date before placing new date
+        can.setFillColorRGB(1, 1, 1)  # White color
+        can.rect(date_x - 2, date_y - 2, 70, 14, fill=True, stroke=False)
+        can.setFillColorRGB(0, 0, 0)  # Reset to black for text
+        
         can.drawString(date_x, date_y, current_date)
 
         if employee_name:
