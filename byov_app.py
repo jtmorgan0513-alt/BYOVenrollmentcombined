@@ -36,9 +36,54 @@ from notifications import send_email_notification, send_docusign_request_hr
 from admin_dashboard import page_admin_control_center
 import file_storage
 
+
+def validate_environment():
+    """Validate required environment variables at startup.
+    
+    Returns dict with validation status and any warnings.
+    """
+    warnings = []
+    errors = []
+    
+    # Check database configuration
+    db_url = os.environ.get("DATABASE_URL")
+    prod_db_url = os.environ.get("PRODUCTION_DATABASE_URL")
+    is_production = os.environ.get("REPLIT_DEPLOYMENT")
+    
+    if is_production and not prod_db_url:
+        warnings.append("PRODUCTION_DATABASE_URL not set - falling back to DATABASE_URL")
+    if not db_url and not prod_db_url:
+        errors.append("No database URL configured (DATABASE_URL or PRODUCTION_DATABASE_URL)")
+    
+    # Check dashboard integration
+    if not os.environ.get("REPLIT_DASHBOARD_URL"):
+        warnings.append("REPLIT_DASHBOARD_URL not set - dashboard sync will be unavailable")
+    
+    # Check email configuration
+    if not os.environ.get("SENDGRID_API_KEY"):
+        warnings.append("SENDGRID_API_KEY not set - email notifications disabled")
+    if not os.environ.get("SENDGRID_FROM_EMAIL"):
+        warnings.append("SENDGRID_FROM_EMAIL not set - using default sender")
+    
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors,
+        "warnings": warnings
+    }
+
+
 @st.cache_resource
 def init_database():
     """Initialize database connection once and cache the result."""
+    # Validate environment on first load
+    env_check = validate_environment()
+    if env_check["warnings"]:
+        for warning in env_check["warnings"]:
+            logging.warning(f"Environment: {warning}")
+    if env_check["errors"]:
+        for error in env_check["errors"]:
+            logging.error(f"Environment: {error}")
+    
     database.init_db()
     return True
 
