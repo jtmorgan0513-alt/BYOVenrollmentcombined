@@ -13,8 +13,8 @@ from typing import Optional, List, Tuple, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from PIL import Image
 
-MAX_IMAGE_SIZE = 1400
-JPEG_QUALITY = 65
+MAX_IMAGE_SIZE = 1600  # Match client-side compression (1600px max dimension)
+JPEG_QUALITY = 65  # Match client-side compression quality
 SMALL_FILE_THRESHOLD = 500 * 1024
 
 PRIVATE_OBJECT_DIR = os.environ.get("PRIVATE_OBJECT_DIR", "")

@@ -1,7 +1,70 @@
 import type { Express, Request, Response } from "express";
 import type { Server } from "http";
-import { createProxyMiddleware } from "http-proxy-middleware";
+import { createProxyMiddleware, Options } from "http-proxy-middleware";
 import OpenAI from "openai";
+import http from "http";
+
+// Streamlit backend health state
+let streamlitReady = false;
+let streamlitCheckInterval: NodeJS.Timeout | null = null;
+
+// Check if Streamlit backend is ready
+async function checkStreamlitHealth(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = http.request(
+      {
+        hostname: "127.0.0.1",
+        port: 8000,
+        path: "/_stcore/health",
+        method: "GET",
+        timeout: 3000,
+      },
+      (res) => {
+        resolve(res.statusCode === 200);
+      }
+    );
+    req.on("error", () => resolve(false));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(false);
+    });
+    req.end();
+  });
+}
+
+// Start keepalive ping to Streamlit backend
+function startStreamlitKeepalive() {
+  if (streamlitCheckInterval) return;
+  
+  const checkAndLog = async () => {
+    const wasReady = streamlitReady;
+    streamlitReady = await checkStreamlitHealth();
+    if (!wasReady && streamlitReady) {
+      console.log(`${new Date().toLocaleTimeString()} [express] Streamlit backend is ready`);
+    } else if (wasReady && !streamlitReady) {
+      console.log(`${new Date().toLocaleTimeString()} [express] Streamlit backend went offline`);
+    }
+  };
+  
+  // Initial check
+  checkAndLog();
+  
+  // Ping every 30 seconds to keep warm
+  streamlitCheckInterval = setInterval(checkAndLog, 30000);
+}
+
+// Wait for Streamlit to be ready with retries
+async function waitForStreamlit(maxRetries = 10, delayMs = 500): Promise<boolean> {
+  for (let i = 0; i < maxRetries; i++) {
+    if (await checkStreamlitHealth()) {
+      streamlitReady = true;
+      return true;
+    }
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    delayMs = Math.min(delayMs * 1.5, 2000); // Exponential backoff, max 2 seconds
+  }
+  return false;
+}
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -125,14 +188,87 @@ export async function registerRoutes(
     res.redirect(`/streamlit/?mode=confirm_docusign&token=${encodeURIComponent(token)}`);
   });
 
+  // Start the keepalive ping to Streamlit backend
+  startStreamlitKeepalive();
+
   // Proxy configuration for Streamlit app at /streamlit/
   const streamlitProxy = createProxyMiddleware({
     target: "http://127.0.0.1:8000",
     changeOrigin: true,
     ws: true,
     pathRewrite: { "^/streamlit": "" },
-    timeout: 30000,
-    proxyTimeout: 30000,
+    timeout: 60000,
+    proxyTimeout: 60000,
+    on: {
+      error: (err: Error, _req: http.IncomingMessage, res: http.ServerResponse | any) => {
+        console.error(`${new Date().toLocaleTimeString()} [proxy] Error:`, err.message);
+        if (res && 'writeHead' in res && !res.headersSent) {
+          res.writeHead(503, { 'Content-Type': 'text/html' });
+          res.end(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>Loading...</title>
+              <meta http-equiv="refresh" content="2">
+              <style>
+                body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
+                .loader { text-align: center; }
+                .spinner { width: 50px; height: 50px; border: 4px solid #e0e0e0; border-top: 4px solid #003366; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                h2 { color: #003366; }
+                p { color: #666; }
+              </style>
+            </head>
+            <body>
+              <div class="loader">
+                <div class="spinner"></div>
+                <h2>Loading Application...</h2>
+                <p>Please wait while we connect you.</p>
+              </div>
+            </body>
+            </html>
+          `);
+        }
+      },
+      proxyReq: (_proxyReq: http.ClientRequest, req: http.IncomingMessage) => {
+        console.log(`${new Date().toLocaleTimeString()} [proxy] ${req.method} ${req.url}`);
+      }
+    }
+  } as Options);
+  
+  // Middleware to wait for Streamlit before proxying
+  app.use("/streamlit", async (req: Request, res: Response, next) => {
+    if (!streamlitReady) {
+      console.log(`${new Date().toLocaleTimeString()} [proxy] Streamlit not ready, waiting...`);
+      const isReady = await waitForStreamlit(8, 300);
+      if (!isReady) {
+        return res.status(503).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Loading...</title>
+            <meta http-equiv="refresh" content="3">
+            <style>
+              body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
+              .loader { text-align: center; }
+              .spinner { width: 50px; height: 50px; border: 4px solid #e0e0e0; border-top: 4px solid #003366; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+              @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+              h2 { color: #003366; }
+              p { color: #666; }
+            </style>
+          </head>
+          <body>
+            <div class="loader">
+              <div class="spinner"></div>
+              <h2>Starting Application...</h2>
+              <p>This may take a moment. The page will refresh automatically.</p>
+            </div>
+          </body>
+          </html>
+        `);
+      }
+    }
+    next();
   });
   
   // Proxy all Streamlit routes under /streamlit/
@@ -140,8 +276,12 @@ export async function registerRoutes(
   
   // Explicit WebSocket upgrade handler for Streamlit connections
   // This ensures WebSocket handshakes succeed on first load without requiring refresh
-  httpServer.on('upgrade', (req, socket, head) => {
+  httpServer.on('upgrade', async (req, socket, head) => {
     if (req.url?.startsWith('/streamlit')) {
+      // Wait for Streamlit if not ready
+      if (!streamlitReady) {
+        await waitForStreamlit(5, 200);
+      }
       (streamlitProxy as any).upgrade(req, socket, head);
     }
   });

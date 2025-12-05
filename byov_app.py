@@ -118,6 +118,159 @@ US_STATES = [
 
 INDUSTRIES = ["Cook", "Dish", "Laundry", "Micro", "Ref", "HVAC", "L&G"]
 
+# Client-side image compression configuration
+MAX_IMAGE_DIMENSION = 1600  # Maximum width/height for client-side resize
+IMAGE_QUALITY = 0.65  # JPEG quality (0.0 to 1.0)
+
+def inject_image_compression_script():
+    """Inject JavaScript that compresses images client-side before upload.
+    
+    This dramatically reduces upload time for iPhone/mobile photos by:
+    - Resizing images to max 1600px dimension
+    - Converting to JPEG at 65% quality
+    - Reducing file size from ~12MB to ~1-2MB
+    """
+    script = f"""
+    <script>
+    (function() {{
+        // Avoid re-injecting if already loaded
+        if (window.imageCompressionLoaded) return;
+        window.imageCompressionLoaded = true;
+        
+        const MAX_DIMENSION = {MAX_IMAGE_DIMENSION};
+        const QUALITY = {IMAGE_QUALITY};
+        
+        // Compress a single image file
+        async function compressImage(file) {{
+            // Skip non-images and PDFs
+            if (!file.type.startsWith('image/') || file.type === 'application/pdf') {{
+                return file;
+            }}
+            
+            return new Promise((resolve) => {{
+                const reader = new FileReader();
+                reader.onload = (e) => {{
+                    const img = new Image();
+                    img.onload = () => {{
+                        // Calculate new dimensions
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        // Only resize if image exceeds max dimension
+                        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {{
+                            if (width > height) {{
+                                height = Math.round(height * MAX_DIMENSION / width);
+                                width = MAX_DIMENSION;
+                            }} else {{
+                                width = Math.round(width * MAX_DIMENSION / height);
+                                height = MAX_DIMENSION;
+                            }}
+                        }} else {{
+                            // Still compress for quality reduction even if size is OK
+                        }}
+                        
+                        // Create canvas and draw resized image
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Convert to blob with compression
+                        canvas.toBlob((blob) => {{
+                            if (blob) {{
+                                // Create new file with same name
+                                const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {{
+                                    type: 'image/jpeg',
+                                    lastModified: Date.now()
+                                }});
+                                console.log(`Compressed ${{file.name}}: ${{(file.size/1024/1024).toFixed(2)}}MB -> ${{(compressedFile.size/1024/1024).toFixed(2)}}MB`);
+                                resolve(compressedFile);
+                            }} else {{
+                                resolve(file);
+                            }}
+                        }}, 'image/jpeg', QUALITY);
+                    }};
+                    img.onerror = () => resolve(file);
+                    img.src = e.target.result;
+                }};
+                reader.onerror = () => resolve(file);
+                reader.readAsDataURL(file);
+            }});
+        }}
+        
+        // Intercept file input changes
+        function setupFileInputInterception() {{
+            document.addEventListener('change', async (event) => {{
+                const input = event.target;
+                
+                // Only process file inputs
+                if (input.tagName !== 'INPUT' || input.type !== 'file') return;
+                
+                // Re-entry guard: skip if already processed
+                if (input.dataset.compressed === 'true') {{
+                    delete input.dataset.compressed;
+                    return;
+                }}
+                
+                // Check if it has files and accepts images
+                if (!input.files || input.files.length === 0) return;
+                
+                const files = Array.from(input.files);
+                const hasImages = files.some(f => f.type.startsWith('image/') && !f.type.includes('pdf'));
+                
+                if (!hasImages) return;
+                
+                // Prevent default Streamlit handling during compression
+                event.stopPropagation();
+                
+                // Show compression indicator
+                const parent = input.closest('[data-testid]') || input.parentElement;
+                let indicator = document.createElement('div');
+                indicator.innerHTML = '<span style="color: #003366; font-size: 12px;">Optimizing images...</span>';
+                indicator.id = 'compression-indicator-' + Date.now();
+                if (parent) parent.appendChild(indicator);
+                
+                try {{
+                    // Compress all images
+                    const compressedFiles = await Promise.all(
+                        files.map(file => compressImage(file))
+                    );
+                    
+                    // Create new DataTransfer with compressed files
+                    const dt = new DataTransfer();
+                    compressedFiles.forEach(file => dt.items.add(file));
+                    
+                    // Mark as processed before replacing files
+                    input.dataset.compressed = 'true';
+                    
+                    // Replace input files
+                    input.files = dt.files;
+                    
+                    // Dispatch change event for Streamlit to detect the new files
+                    // The re-entry guard will short-circuit and clear the flag
+                    input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                }} finally {{
+                    // Remove indicator
+                    if (indicator.parentNode) indicator.remove();
+                }}
+            }}, true);
+        }}
+        
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {{
+            document.addEventListener('DOMContentLoaded', setupFileInputInterception);
+        }} else {{
+            setupFileInputInterception();
+        }}
+        
+        console.log('Image compression script loaded');
+    }})();
+    </script>
+    """
+    st.markdown(script, unsafe_allow_html=True)
+
 
 @st.cache_data(ttl=30)
 def load_enrollments_cached():
@@ -1501,6 +1654,9 @@ def wizard_step_1():
 
 def wizard_step_2():
     """Step 2: Vehicle Info & Documents"""
+    # Inject client-side image compression for faster uploads
+    inject_image_compression_script()
+    
     st.subheader("Vehicle Information & Documents")
     
     data = st.session_state.wizard_data
@@ -2434,6 +2590,9 @@ def page_new_enrollment():
 
 # OLD PAGE - REMOVE EVERYTHING BELOW UNTIL ADMIN DASHBOARD
 def page_new_enrollment_OLD():
+    # Inject client-side image compression for faster uploads
+    inject_image_compression_script()
+    
     st.title("BYOV Vehicle Enrollment")
     st.caption("Submit your vehicle information for the Bring Your Own Vehicle program.")
 
