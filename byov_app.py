@@ -439,6 +439,9 @@ def generate_signed_pdf(template_path: str, signature_image, output_path: str,
                 page.merge_page(overlay_pdf.pages[0])
             writer.add_page(page)
 
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
         with open(output_path, "wb") as f:
             writer.write(f)
 
