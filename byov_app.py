@@ -1031,21 +1031,26 @@ def post_to_dashboard_single_request(record: dict, enrollment_id: int = None, en
     photos = []
     failed_photos = []
     import base64 as _b64, mimetypes as _mimetypes
+    import file_storage
     MAX_BYTES = 10 * 1024 * 1024  # 10MB
 
     for d in docs:
         path = d.get('file_path') if isinstance(d, dict) else None
         category = d.get('doc_type') or d.get('category') or 'vehicle'
-        if not path or not os.path.exists(path):
+        if not path:
+            failed_photos.append({'path': path, 'error': 'missing path'})
+            continue
+        
+        # Use file_storage to check existence and read files (supports Object Storage)
+        if not file_storage.file_exists(path):
             failed_photos.append({'path': path, 'error': 'missing'})
             continue
         try:
-            size = os.path.getsize(path)
+            b = file_storage.read_file(path)
+            size = len(b)
             if size > MAX_BYTES:
                 failed_photos.append({'path': path, 'error': 'size_exceeded', 'size': size})
                 continue
-            with open(path, 'rb') as fh:
-                b = fh.read()
             
             # Debug logging
             import hashlib
