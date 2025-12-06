@@ -656,8 +656,6 @@ def render_record_card(record: Dict[str, Any]) -> None:
             st.markdown("**Technician Info**")
             st.write(f"**Name:** {raw.get('full_name', '-')}")
             st.write(f"**Tech ID:** {raw.get('tech_id', '-')}")
-            st.write(f"**Email:** {raw.get('email', '-')}")
-            st.write(f"**Phone:** {raw.get('phone', '-')}")
             st.write(f"**Referred By:** {raw.get('referred_by', '-')}")
         
         with col2:
@@ -893,17 +891,24 @@ def render_record_card(record: Dict[str, Any]) -> None:
                     "Notifications not configured. Adjust in Notification Settings tab."
                 )
 
-        # Handle Delete with confirmation
+        # Handle Delete with session state confirmation
+        delete_key = f"pending_delete_{enrollment_id}"
+        
         if delete:
+            st.session_state[delete_key] = True
+        
+        if st.session_state.get(delete_key, False):
             st.warning("⚠️ Are you sure you want to delete this enrollment? This cannot be undone.")
             col_confirm, col_cancel = st.columns(2)
             with col_confirm:
                 if st.button("Yes, Delete", key=f"confirm_delete_{enrollment_id}", type="primary"):
                     if delete_enrollment(enrollment_id):
+                        st.session_state[delete_key] = False
                         st.success("Enrollment deleted successfully!")
                         st.rerun()
             with col_cancel:
                 if st.button("Cancel", key=f"cancel_delete_{enrollment_id}"):
+                    st.session_state[delete_key] = False
                     st.rerun()
 
 
