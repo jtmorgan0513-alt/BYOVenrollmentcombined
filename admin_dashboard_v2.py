@@ -275,7 +275,14 @@ def get_admin_records() -> List[Dict[str, Any]]:
         enrollment_id = e.get('id')
         docs = database.get_documents_for_enrollment(enrollment_id)
         
-        signature_exists = any(d.get('doc_type') == 'signature' for d in docs)
+        signature_docs = [d for d in docs if d.get('doc_type') == 'signature']
+        signature_exists = False
+        for sig_doc in signature_docs:
+            path = sig_doc.get('file_path')
+            if path and file_storage.file_exists(path):
+                signature_exists = True
+                break
+        
         photos_count = sum(1 for d in docs if d.get('doc_type') in ('vehicle', 'registration', 'insurance'))
         
         vin = e.get('vin', '')
