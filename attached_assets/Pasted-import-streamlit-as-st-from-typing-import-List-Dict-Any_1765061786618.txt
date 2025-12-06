@@ -1,0 +1,468 @@
+import streamlit as st
+from typing import List, Dict, Any
+
+# Import your existing logic
+from dashboard_sync import pull_dashboard_data, push_dashboard_update
+# If you already have helpers in admin_dashboard.py (filters, actions, etc),
+# you can import them here too:
+# from admin_dashboard import some_helper
+
+st.set_page_config(page_title="BYOV Admin Dashboard", layout="wide")
+
+
+def inject_admin_theme_css() -> None:
+    """Injects the BYOV admin CSS so Streamlit matches your HTML design."""
+    st.markdown(
+        """
+        <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+          font-family: 'Inter', -apple-system, sans-serif;
+          background: #f9fafb;
+          color: #1e293b;
+          min-height: 100vh;
+        }
+
+        /* Header */
+        .site-header {
+          background: white;
+          border-bottom: 1px solid #e5e7eb;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .header-inner {
+          max-width: 1280px;
+          margin: 0 auto;
+          padding: 1rem 1.5rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .logo {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: #2563eb;
+        }
+
+        .pending-badge {
+          background: #dbeafe;
+          color: #1e40af;
+          padding: 0.375rem 0.875rem;
+          border-radius: 9999px;
+          font-size: 0.875rem;
+          font-weight: 600;
+        }
+
+        .logout-btn {
+          color: #6b7280;
+          font-size: 0.875rem;
+          background: none;
+          border: none;
+          cursor: pointer;
+        }
+
+        .logout-btn:hover { color: #111827; }
+
+        /* Main Content */
+        .main-content {
+          max-width: 1280px;
+          margin: 0 auto;
+          padding: 1.5rem;
+        }
+
+        .records-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        /* Record Card */
+        .record-card {
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          border: 1px solid #e5e7eb;
+          overflow: hidden;
+          margin-bottom: 1rem;
+        }
+
+        /* Card Header */
+        .card-header {
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%);
+          padding: 1.25rem 1.5rem;
+          color: white;
+        }
+
+        .card-header-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+        }
+
+        .card-header h2 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin-bottom: 0.5rem;
+        }
+
+        .card-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 1rem;
+          font-size: 0.875rem;
+          opacity: 0.9;
+        }
+
+        .card-meta span {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+        }
+
+        .status-area {
+          text-align: right;
+        }
+
+        .status-badge {
+          display: inline-block;
+          padding: 0.375rem 0.75rem;
+          border-radius: 8px;
+          font-size: 0.875rem;
+          font-weight: 700;
+          margin-bottom: 0.25rem;
+        }
+
+        .status-badge.validated {
+          background: #4ade80;
+          color: #14532d;
+        }
+
+        .status-badge.review {
+          background: #facc15;
+          color: #713f12;
+        }
+
+        .submitted-date {
+          font-size: 0.75rem;
+          opacity: 0.75;
+        }
+
+        /* Quick Stats Bar */
+        .stats-bar {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          background: #f9fafb;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .stat-item {
+          padding: 0.75rem;
+          text-align: center;
+          border-right: 1px solid #e5e7eb;
+        }
+
+        .stat-item:last-child { border-right: none; }
+
+        .stat-label {
+          font-size: 0.7rem;
+          color: #6b7280;
+          margin-bottom: 0.25rem;
+          text-transform: uppercase;
+          letter-spacing: 0.025em;
+        }
+
+        .stat-value {
+          font-size: 0.8rem;
+          font-weight: 700;
+        }
+
+        .stat-value.green { color: #16a34a; }
+        .stat-value.mono { font-family: monospace; }
+
+        /* Actions / buttons — applied to Streamlit buttons */
+        .stButton > button {
+          border-radius: 12px;
+          font-weight: 700;
+          font-size: 0.9rem;
+          padding: 0.6rem 1.2rem;
+        }
+
+        .approve-btn > button {
+          background: #16a34a !important;
+          color: white !important;
+          box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+        }
+
+        .approve-btn > button:hover {
+          background: #15803d !important;
+          box-shadow: 0 6px 16px rgba(22, 163, 74, 0.4);
+        }
+
+        .pdf-btn-class > button {
+          background: #2563eb !important;
+          color: white !important;
+        }
+
+        .pdf-btn-class > button:hover {
+          background: #1d4ed8 !important;
+        }
+
+        .notify-btn-class > button {
+          background: #374151 !important;
+          color: white !important;
+        }
+
+        .notify-btn-class > button:hover {
+          background: #1f2937 !important;
+        }
+
+        .warning-box {
+          margin-top: 0.75rem;
+          padding: 0.75rem;
+          background: #fefce8;
+          border: 2px solid #fde047;
+          border-radius: 8px;
+          font-size: 0.75rem;
+          color: #854d0e;
+        }
+
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def get_admin_records() -> List[Dict[str, Any]]:
+    """
+    Fetch records for the admin dashboard.
+
+    Replace this with your actual data source. For example:
+    - Use pull_dashboard_data()
+    - Or a function from admin_dashboard.py that returns a list of dicts.
+    """
+    # Example static data mirroring your HTML mock so you can see the layout:
+    return [
+        {
+            "tech_name": "Trajan Oshae Copeland",
+            "vehicle": "2024 Dodge Challenger",
+            "tech_id": "1E42F2",
+            "district": "R17",
+            "state": "Virginia",
+            "status": "in_review",
+            "submitted_date": "12/05/2025",
+            "vin_tail": "461289",
+            "insurance_exp": "10/01/2026",
+            "registration_exp": "05/01/2027",
+            "photos_count": 6,
+            "signature": False,
+        },
+        {
+            "tech_name": "Sarah Mitchell",
+            "vehicle": "2023 Toyota Camry",
+            "tech_id": "2F93A1",
+            "district": "R22",
+            "state": "Maryland",
+            "status": "validated",
+            "submitted_date": "12/04/2025",
+            "vin_tail": "123456",
+            "insurance_exp": "08/15/2026",
+            "registration_exp": "03/20/2027",
+            "photos_count": 6,
+            "signature": True,
+        },
+    ]
+    # In production you’d probably do something like:
+    # return pull_dashboard_data()
+
+
+def render_header(pending_count: int) -> None:
+    st.markdown(
+        f"""
+        <header class="site-header">
+          <div class="header-inner">
+            <div class="header-left">
+              <div class="logo">Sears BYOV Admin</div>
+              <span class="pending-badge">{pending_count} Pending Reviews</span>
+            </div>
+            <button class="logout-btn" onclick="window.location.href='?logout=1'">Logout</button>
+          </div>
+        </header>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_record_card(record: Dict[str, Any]) -> None:
+    """Render a single record card with layout that matches your HTML."""
+    status = record.get("status", "in_review")
+    is_validated = status == "validated"
+
+    status_label = "✓ Validated" if is_validated else "⚠ In Review"
+    status_class = "validated" if is_validated else "review"
+
+    signature_ok = record.get("signature", False)
+
+    # Wrap card in a container so we can nest Streamlit components inside
+    with st.container():
+        st.markdown(
+            f"""
+            <div class="record-card">
+              <div class="card-header">
+                <div class="card-header-top">
+                  <div>
+                    <h2>{record.get("tech_name", "Unknown Tech")}</h2>
+                    <div class="card-meta">
+                      <span>🚗 {record.get("vehicle", "")}</span>
+                      <span>Tech #{record.get("tech_id", "")}</span>
+                      <span>District {record.get("district", "")}</span>
+                      <span>{record.get("state", "")}</span>
+                    </div>
+                  </div>
+                  <div class="status-area">
+                    <div class="status-badge {status_class}">{status_label}</div>
+                    <div class="submitted-date">Submitted {record.get("submitted_date", "")}</div>
+                  </div>
+                </div>
+              </div>
+              <div class="stats-bar">
+                <div class="stat-item">
+                  <div class="stat-label">VIN</div>
+                  <div class="stat-value mono">{record.get("vin_tail", "-")}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-label">Insurance Exp</div>
+                  <div class="stat-value green">{record.get("insurance_exp", "-")}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-label">Registration Exp</div>
+                  <div class="stat-value green">{record.get("registration_exp", "-")}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-label">Photos</div>
+                  <div class="stat-value">{record.get("photos_count", "-")}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-label">Signature</div>
+                  <div class="stat-value" style="color:{'#16a34a' if signature_ok else '#ef4444'}">
+                    {'✓ Yes' if signature_ok else '✗ Missing'}
+                  </div>
+                </div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # Document Review section – use expander + tabs instead of HTML JS
+        with st.expander("📁 Document Review – Photos, registration, insurance, signed form", expanded=False):
+            tabs = st.tabs(["Vehicle", "Registration", "Insurance", "Form"])
+
+            with tabs[0]:
+                st.write("Vehicle photos go here (front/rear/sides).")
+                # You can replace these with st.image([...]) if you have URLs.
+
+            with tabs[1]:
+                st.write("Registration photo or PDF preview here.")
+
+            with tabs[2]:
+                st.write("Insurance photo or PDF preview here.")
+
+            with tabs[3]:
+                st.write("Signed enrollment form preview / link here.")
+                # e.g. st.download_button("Open PDF", data=..., mime="application/pdf")
+
+        # Actions section – buttons styled via CSS classes above
+        with st.expander("✅ Actions – Approve enrollment and send notifications", expanded=False):
+            col1, col2, col3 = st.columns([2, 1.5, 1.5])
+            with col1:
+                approve_clicked = st.container()
+                with approve_clicked:
+                    st.markdown('<div class="approve-btn">', unsafe_allow_html=True)
+                    approve = st.button("Approve & Sync", key=f"approve_{record.get('tech_id')}")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+            with col2:
+                pdf_container = st.container()
+                with pdf_container:
+                    st.markdown('<div class="pdf-btn-class">', unsafe_allow_html=True)
+                    send_pdf = st.button("PDF to HR", key=f"pdf_{record.get('tech_id')}")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+            with col3:
+                notify_container = st.container()
+                with notify_container:
+                    st.markdown('<div class="notify-btn-class">', unsafe_allow_html=True)
+                    notify = st.button("Notify", key=f"notify_{record.get('tech_id')}")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown(
+                """
+                <div class="warning-box">
+                  Complete all validation checks before approving
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            # Wire the buttons to your backend logic:
+            if approve:
+                # TODO: call your existing approval + push_dashboard_update logic here
+                # push_dashboard_update(record)
+                st.success("Enrollment approved and synced (stub).")
+
+            if send_pdf:
+                # TODO: trigger your existing 'PDF to HR' logic here
+                st.info("PDF sent to HR (stub).")
+
+            if notify:
+                # TODO: trigger your existing notification logic here
+                st.info("Technician notified (stub).")
+
+
+def admin_login() -> bool:
+    """
+    Very simple admin login stub.
+    Replace this with your existing admin auth logic from byov_app/admin_dashboard.
+    """
+    password = st.text_input("Admin Password", type="password")
+    login = st.button("Log In")
+
+    if login and password == st.secrets.get("ADMIN_PASSWORD", "admin"):
+        st.session_state["admin_logged_in"] = True
+        st.experimental_rerun()
+
+    return st.session_state.get("admin_logged_in", False)
+
+
+def main() -> None:
+    inject_admin_theme_css()
+
+    st.markdown('<div class="main-content">', unsafe_allow_html=True)
+
+    # Auth gate
+    if not admin_login():
+        st.stop()
+
+    # Fetch records
+    records = get_admin_records()
+    pending_count = sum(1 for r in records if r.get("status") == "in_review")
+
+    # Header
+    render_header(pending_count)
+
+    st.markdown('<div class="records-list">', unsafe_allow_html=True)
+    for rec in records:
+        render_record_card(rec)
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
+
+if __name__ == "__main__":
+    main()
