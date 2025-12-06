@@ -7,6 +7,13 @@ The BYOV (Bring Your Own Vehicle) Enrollment Automation System is designed to st
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (December 2025)
+- **Admin Dashboard UI Rewrite (admin_dashboard_v2.py):**
+  - New card-based UI with blue gradient headers for each enrollment
+  - Stats bar showing VIN, Insurance Exp, Registration Exp, Photos count, Signature status
+  - Document Review expander with tabs for Vehicle/Registration/Insurance/Form
+  - Actions expander with styled buttons (green Approve, blue PDF to HR, charcoal Notify)
+  - Real data wired via `database.get_all_enrollments()` and `get_documents_for_enrollment()`
+  - Actions connected to existing `push_to_dashboard_single_request()`, `send_hr_policy_notification()`, `_send_approval_notification()`
 - **Enrollment Wizard Updates:**
   - Split Full Name into First Name + Last Name fields (combined for storage as full_name)
   - Renamed "Tech ID" label to "Enterprise ID" (data still stored as tech_id)
