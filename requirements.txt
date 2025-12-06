@@ -14,3 +14,4 @@ pdf2image
 pymupdf
 certifi
 pdfplumber
+replit-object-storage
