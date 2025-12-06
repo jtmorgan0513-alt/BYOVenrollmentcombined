@@ -55,8 +55,8 @@ Enrollment submission involves data validation, photo uploads, signature capture
 *   **SQLite:** Local fallback database (`data/byov.db`).
 
 ### Cloud Storage
-*   **Replit Object Storage:** For private object storage, detected via `PRIVATE_OBJECT_DIR`.
-*   **Local Filesystem:** Fallback storage for `uploads/` and `pdfs/`.
+*   **Replit Object Storage:** Primary storage for uploaded files (photos, PDFs). Configured via `PRIVATE_OBJECT_DIR` environment variable pointing to the bucket path. **Required for production** - files persist across deployments.
+*   **Local Filesystem:** Development fallback only - files in `uploads/` and `pdfs/` are NOT persistent across deployments.
 
 ### Email Services
 *   **SendGrid:** Exclusively used for all email notifications. Requires `SENDGRID_API_KEY` and `SENDGRID_FROM_EMAIL`.
