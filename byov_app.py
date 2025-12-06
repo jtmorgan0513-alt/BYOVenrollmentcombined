@@ -688,6 +688,10 @@ def post_to_dashboard(record: dict, enrollment_id: int) -> dict:
         referred_by_val = record.get('referred_by') or record.get('referredBy') or ""
 
         # Step 5: Create technician payload with complete field mapping
+        # enrollmentType: "New Hire" or "Existing Tech" based on is_new_hire
+        is_new_hire = record.get("is_new_hire", False)
+        enrollment_type = "New Hire" if is_new_hire else "Existing Tech"
+        
         payload = {
             "name": record.get("full_name"),
             "techId": tech_id,  # UPPERCASE
@@ -695,6 +699,8 @@ def post_to_dashboard(record: dict, enrollment_id: int) -> dict:
             "district": record.get("district"),
             "referredBy": referred_by_val,
             "enrollmentStatus": "Enrolled",  # Always "Enrolled" on approval
+            "enrollmentType": enrollment_type,  # "New Hire" or "Existing Tech"
+            "truckId": record.get("truck_number") or "",  # Truck Number
             "dateStartedByov": date_started,
             "vinNumber": record.get("vin"),
             "vehicleMake": record.get("make"),
@@ -985,12 +991,17 @@ def post_to_dashboard_single_request(record: dict, enrollment_id: int = None, en
 
     # Build payload mapping according to external API
     # Use empty strings for missing optional string fields to avoid null validation errors
+    # enrollmentType: "New Hire" or "Existing Tech" based on is_new_hire
+    is_new_hire = record.get("is_new_hire", False)
+    enrollment_type = "New Hire" if is_new_hire else "Existing Tech"
+    
     payload = {
         "name": record.get("full_name") or record.get("name") or "",
         "techId": tech_id,
         "region": record.get("region") or record.get("state") or "",
         "district": record.get("district") or "",
         "enrollmentStatus": record.get("enrollmentStatus", "Enrolled"),
+        "enrollmentType": enrollment_type,  # "New Hire" or "Existing Tech"
         "truckId": record.get("truckId") or record.get("truck_id") or record.get("truck_number") or "",
         "mobilePhoneNumber": record.get("mobilePhoneNumber") or record.get("mobile") or record.get("phone") or "",
         "techEmail": record.get("techEmail") or record.get("email") or "",
@@ -998,7 +1009,6 @@ def post_to_dashboard_single_request(record: dict, enrollment_id: int = None, en
         "vinNumber": record.get("vin") or record.get("vinNumber") or "",
         "insuranceExpiration": format_date(record.get("insurance_exp") or record.get("insuranceExpiration")) or "",
         "registrationExpiration": format_date(record.get("registration_exp") or record.get("registrationExpiration")) or "",
-        "isNewHire": bool(record.get("is_new_hire", False)),
     }
 
     # Optional fields: vehicleMake/Model/Year/industry/dateStartedByov
