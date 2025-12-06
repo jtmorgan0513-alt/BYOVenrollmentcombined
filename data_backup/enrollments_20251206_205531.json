@@ -1,0 +1,203 @@
+[
+  {
+    "id": 11,
+    "full_name": "Tes TEst",
+    "tech_id": "jmorga9",
+    "district": "9827",
+    "state": "North Carolina",
+    "referred_by": "tyler",
+    "industries": [
+      "Cook",
+      "Dish",
+      "Laundry"
+    ],
+    "industry": [
+      "Cook",
+      "Dish",
+      "Laundry"
+    ],
+    "year": "2025",
+    "make": "TOYOTA",
+    "model": "RAV4",
+    "vin": "2T3W1RFV5SC353610",
+    "insurance_exp": "2026-12-31",
+    "registration_exp": "2026-12-31",
+    "template_used": "template_1.pdf",
+    "comment": "",
+    "submission_date": "2025-12-06 19:05:54.930051+00:00",
+    "approved": 1,
+    "approved_at": "2025-12-06 20:14:08.049641+00:00",
+    "approved_by": "Admin",
+    "dashboard_tech_id": "f1dfdfa7-a232-4ab4-88d2-1a02deb8ba31",
+    "last_upload_report": {
+      "response": {
+        "message": "Technician created successfully with 6 photos",
+        "success": true,
+        "technician": {
+          "id": "f1dfdfa7-a232-4ab4-88d2-1a02deb8ba31",
+          "name": "Tes TEst",
+          "region": "North Carolina",
+          "techId": "JMORGA9",
+          "truckId": "444444",
+          "comments": null,
+          "district": "9827",
+          "industry": "Cook, Dish, Laundry",
+          "isActive": true,
+          "cityState": "",
+          "createdAt": "2025-12-06T20:14:06.128Z",
+          "deletedAt": null,
+          "fleetTech": null,
+          "isNewHire": false,
+          "techEmail": "",
+          "updatedAt": "2025-12-06T20:14:06.128Z",
+          "vinNumber": "2T3W1RFV5SC353610",
+          "referredBy": "tyler",
+          "mileageRate": "0.70",
+          "surveyToken": null,
+          "vehicleMake": "TOYOTA",
+          "vehicleYear": "2025",
+          "planningArea": null,
+          "vehicleModel": "RAV4",
+          "enrollmentType": null,
+          "milesPerGallon": "25.0",
+          "dateStartedByov": "2025-12-06",
+          "surveyBonusSent": null,
+          "enrollmentStatus": "Enrolled",
+          "planningAreaName": null,
+          "mobilePhoneNumber": "",
+          "surveyCompletedAt": null,
+          "lastAdminAlertSent": null,
+          "insuranceExpiration": "2026-12-31",
+          "insuranceDaysRemaining": null,
+          "registrationExpiration": "2026-12-31",
+          "lastDocumentReminderSent": null,
+          "lastInsuranceReminderSent": null,
+          "registrationDaysRemaining": null,
+          "lastRegistrationReminderSent": null
+        },
+        "photosCreated": 6
+      },
+      "photo_count": 6,
+      "failed_uploads": [
+        {
+          "path": "pdfs/jmorga9_d98cdc03-24d0-46a0-8c21-7e589351f832.pdf",
+          "error": "missing"
+        }
+      ]
+    },
+    "is_new_hire": false,
+    "truck_number": "444444",
+    "first_name": "Tes",
+    "last_name": "TEst"
+  },
+  {
+    "id": 10,
+    "full_name": "Trajan oshae Copeland ",
+    "tech_id": "TCOPELA",
+    "district": "8175",
+    "state": "Virginia",
+    "referred_by": "James Morgan ",
+    "industries": [
+      "HVAC"
+    ],
+    "industry": [
+      "HVAC"
+    ],
+    "year": "2023",
+    "make": "Dodge ",
+    "model": "Challenger",
+    "vin": "2C3CDZAG1PH681099",
+    "insurance_exp": "2026-05-05",
+    "registration_exp": "2027-03-31",
+    "template_used": "template_1.pdf",
+    "comment": "",
+    "submission_date": "2025-12-05 13:50:04.311785+00:00",
+    "approved": 1,
+    "approved_at": "2025-12-06 16:42:09.044355+00:00",
+    "approved_by": "Admin",
+    "dashboard_tech_id": "6f26d642-787a-48c1-a087-4ea4bd46a662",
+    "last_upload_report": {
+      "response": {
+        "message": "Technician created successfully",
+        "success": true,
+        "technician": {
+          "id": "6f26d642-787a-48c1-a087-4ea4bd46a662",
+          "name": "Trajan oshae Copeland ",
+          "region": "Virginia",
+          "techId": "142372",
+          "truckId": "",
+          "comments": null,
+          "district": "8175",
+          "industry": "HVAC",
+          "isActive": true,
+          "cityState": "",
+          "createdAt": "2025-12-06T16:42:08.715Z",
+          "deletedAt": null,
+          "fleetTech": null,
+          "techEmail": "",
+          "updatedAt": "2025-12-06T16:42:08.715Z",
+          "vinNumber": "2C3CDZAG1PH681099",
+          "referredBy": "James Morgan ",
+          "mileageRate": "0.70",
+          "surveyToken": null,
+          "vehicleMake": "Dodge ",
+          "vehicleYear": "2023",
+          "planningArea": null,
+          "vehicleModel": "Challenger",
+          "enrollmentType": null,
+          "milesPerGallon": "25.0",
+          "dateStartedByov": "2025-12-05",
+          "surveyBonusSent": null,
+          "enrollmentStatus": "Enrolled",
+          "planningAreaName": null,
+          "mobilePhoneNumber": "",
+          "surveyCompletedAt": null,
+          "lastAdminAlertSent": null,
+          "insuranceExpiration": "2026-05-05",
+          "insuranceDaysRemaining": null,
+          "registrationExpiration": "2027-03-31",
+          "lastDocumentReminderSent": null,
+          "lastInsuranceReminderSent": null,
+          "registrationDaysRemaining": null,
+          "lastRegistrationReminderSent": null
+        },
+        "photosCreated": 0
+      },
+      "photo_count": 0,
+      "failed_uploads": [
+        {
+          "path": "uploads/142372_74fce9bd-6146-4707-894e-d9ae201e2afd/vehicle/vehicle_1.jpeg",
+          "error": "missing"
+        },
+        {
+          "path": "uploads/142372_74fce9bd-6146-4707-894e-d9ae201e2afd/vehicle/vehicle_2.jpeg",
+          "error": "missing"
+        },
+        {
+          "path": "uploads/142372_74fce9bd-6146-4707-894e-d9ae201e2afd/vehicle/vehicle_3.jpeg",
+          "error": "missing"
+        },
+        {
+          "path": "uploads/142372_74fce9bd-6146-4707-894e-d9ae201e2afd/vehicle/vehicle_4.jpeg",
+          "error": "missing"
+        },
+        {
+          "path": "uploads/142372_74fce9bd-6146-4707-894e-d9ae201e2afd/insurance/insurance_1.jpg",
+          "error": "missing"
+        },
+        {
+          "path": "uploads/142372_74fce9bd-6146-4707-894e-d9ae201e2afd/registration/registration_1.jpg",
+          "error": "missing"
+        },
+        {
+          "path": "pdfs/142372_74fce9bd-6146-4707-894e-d9ae201e2afd.pdf",
+          "error": "missing"
+        }
+      ]
+    },
+    "is_new_hire": false,
+    "truck_number": null,
+    "first_name": null,
+    "last_name": null
+  }
+]

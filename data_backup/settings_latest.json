@@ -1,0 +1,66 @@
+{
+  "custom": {
+    "enabled": false,
+    "recipients": "",
+    "selected_docs": [
+      "signature",
+      "vehicle",
+      "registration",
+      "insurance"
+    ],
+    "selected_fields": [
+      "full_name",
+      "tech_id",
+      "district",
+      "state",
+      "referred_by",
+      "year",
+      "make",
+      "model",
+      "vin",
+      "industry",
+      "insurance_exp",
+      "registration_exp",
+      "submission_date",
+      "approved"
+    ],
+    "subject_template": "BYOV Enrollment: {full_name} (Tech ID: {tech_id})"
+  },
+  "hr_pdf": {
+    "enabled": true,
+    "recipients": "tyler.morgan@transformco.com",
+    "subject_template": "BYOV Signed Policy Form - {full_name} (Tech ID: {tech_id})"
+  },
+  "approval": {
+    "enabled": true,
+    "recipients": "",
+    "selected_docs": [
+      "signature",
+      "vehicle",
+      "registration",
+      "insurance"
+    ],
+    "selected_fields": [
+      "full_name",
+      "tech_id",
+      "district",
+      "state",
+      "referred_by",
+      "year",
+      "make",
+      "model",
+      "vin",
+      "industry",
+      "insurance_exp",
+      "registration_exp",
+      "submission_date",
+      "approved"
+    ],
+    "subject_template": "BYOV Enrollment Approved: {full_name} (Tech ID: {tech_id})"
+  },
+  "submission": {
+    "enabled": true,
+    "recipients": "tyler.morgan@transformco.com",
+    "subject_template": "New BYOV Enrollment: {full_name} (Tech ID: {tech_id})"
+  }
+}
