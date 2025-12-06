@@ -6,6 +6,16 @@ The BYOV (Bring Your Own Vehicle) Enrollment Automation System is designed to st
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (December 2025)
+- **Enrollment Wizard Updates:**
+  - Split Full Name into First Name + Last Name fields (combined for storage as full_name)
+  - Renamed "Tech ID" label to "Enterprise ID" (data still stored as tech_id)
+  - Added Employment Status dropdown: "New Hire (less than 30 days)" / "Existing Tech"
+  - Added Truck Number field with skip option for new hires
+  - New database columns: first_name, last_name, is_new_hire (boolean), truck_number
+- **Dashboard Sync:** Now sends isNewHire (boolean) and truckId fields to external API
+- **Email Notifications:** Updated templates and admin field metadata to include new fields
+
 ## System Architecture
 
 The system comprises a dual-application setup connected via a proxy:
