@@ -331,13 +331,22 @@ def get_admin_records() -> List[Dict[str, Any]]:
 
 
 def render_header(pending_count: int) -> None:
-    """Render the admin header with logo and pending badge."""
+    """Render the admin header with Sears logo and pending badge."""
+    logo_path = "static/sears_logo_brand.png"
+    logo_b64 = ""
+    if os.path.exists(logo_path):
+        with open(logo_path, "rb") as f:
+            logo_b64 = base64.b64encode(f.read()).decode("utf-8")
+    
+    logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="height: 40px; margin-right: 12px;" alt="Sears Logo" />' if logo_b64 else ""
+    
     st.markdown(
         f"""
         <div class="site-header">
           <div class="header-inner">
             <div class="header-left">
-              <div class="logo">Sears BYOV Admin</div>
+              {logo_html}
+              <div class="logo">BYOV Admin</div>
               <span class="pending-badge">{pending_count} Pending Review{'s' if pending_count != 1 else ''}</span>
             </div>
           </div>
