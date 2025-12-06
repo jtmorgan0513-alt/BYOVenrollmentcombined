@@ -15,10 +15,12 @@ except Exception:
 
 ENROLLMENT_FIELDS = [
     {'key': 'full_name', 'label': 'Full Name', 'group': 'Technician'},
-    {'key': 'tech_id', 'label': 'Tech ID', 'group': 'Technician'},
+    {'key': 'tech_id', 'label': 'Enterprise ID', 'group': 'Technician'},
     {'key': 'district', 'label': 'District', 'group': 'Technician'},
     {'key': 'state', 'label': 'State', 'group': 'Technician'},
     {'key': 'referred_by', 'label': 'Referred By', 'group': 'Technician'},
+    {'key': 'is_new_hire', 'label': 'Employment Status', 'group': 'Technician'},
+    {'key': 'truck_number', 'label': 'Truck Number', 'group': 'Technician'},
     {'key': 'year', 'label': 'Year', 'group': 'Vehicle'},
     {'key': 'make', 'label': 'Make', 'group': 'Vehicle'},
     {'key': 'model', 'label': 'Model', 'group': 'Vehicle'},

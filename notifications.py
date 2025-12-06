@@ -118,6 +118,14 @@ def get_sears_html_template(record, include_logo=True, use_cid_logo=False):
                             <td style="padding: 8px 0; color: #333;">{record.get('referred_by', 'N/A')}</td>
                         </tr>
                         <tr>
+                            <td style="padding: 8px 0; color: #666;">Employment Status:</td>
+                            <td style="padding: 8px 0; color: #333;">{('New Hire (less than 30 days)' if record.get('is_new_hire') else 'Existing Tech')}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #666;">Truck Number:</td>
+                            <td style="padding: 8px 0; color: #333;">{record.get('truck_number', 'N/A') or 'N/A'}</td>
+                        </tr>
+                        <tr>
                             <td style="padding: 8px 0; color: #666;">Industries:</td>
                             <td style="padding: 8px 0; color: #333;">{industries_str}</td>
                         </tr>
@@ -188,6 +196,7 @@ def get_sears_html_template(record, include_logo=True, use_cid_logo=False):
 
 def get_plain_text_body(record):
     """Generate a plain text version of the email for clients that don't support HTML."""
+    hire_status = 'New Hire (less than 30 days)' if record.get('is_new_hire') else 'Existing Tech'
     text = f"""BYOV Enrollment Submitted
 
 Technician Information:
@@ -196,6 +205,8 @@ Technician Information:
 - District: {record.get('district', 'N/A')}
 - State: {record.get('state', 'N/A')}
 - Referred By: {record.get('referred_by', 'N/A')}
+- Employment Status: {hire_status}
+- Truck Number: {record.get('truck_number', 'N/A') or 'N/A'}
 
 Vehicle Information:
 - Year: {record.get('year', 'N/A')}
@@ -806,6 +817,10 @@ def get_custom_html_template(record, selected_fields, field_metadata, use_cid_lo
                     pass
             elif key == 'approved':
                 value = 'Yes' if value == 1 else 'No'
+            elif key == 'is_new_hire':
+                value = 'New Hire (less than 30 days)' if value else 'Existing Tech'
+            elif key == 'truck_number':
+                value = value or 'N/A'
             elif key == 'industry':
                 if isinstance(value, list):
                     value = ', '.join(value) if value else 'N/A'
@@ -896,6 +911,10 @@ def get_custom_plain_text(record, selected_fields, field_metadata):
                     pass
             elif key == 'approved':
                 value = 'Yes' if value == 1 else 'No'
+            elif key == 'is_new_hire':
+                value = 'New Hire (less than 30 days)' if value else 'Existing Tech'
+            elif key == 'truck_number':
+                value = value or 'N/A'
             elif key == 'industry' and isinstance(value, list):
                 value = ', '.join(value) if value else 'N/A'
             

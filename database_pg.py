@@ -241,6 +241,15 @@ def init_db():
         
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_enrollments_tech_id ON enrollments(tech_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_documents_enrollment_id ON documents(enrollment_id)")
+        
+        # Add new columns for hire status and truck number (if they don't exist)
+        try:
+            cursor.execute("ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS is_new_hire BOOLEAN DEFAULT FALSE")
+            cursor.execute("ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS truck_number TEXT")
+            cursor.execute("ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS first_name TEXT")
+            cursor.execute("ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS last_name TEXT")
+        except Exception:
+            pass  # Columns may already exist
 
 
 def insert_enrollment(record: Dict[str, Any]) -> int:
@@ -260,9 +269,10 @@ def insert_enrollment(record: Dict[str, Any]) -> int:
                 full_name, tech_id, district, state, referred_by,
                 industries, industry, year, make, model, vin,
                 insurance_exp, registration_exp, template_used, comment,
-                submission_date, approved, approved_at, approved_by
+                submission_date, approved, approved_at, approved_by,
+                is_new_hire, truck_number, first_name, last_name
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             ) RETURNING id
         """, (
             record.get("full_name"),
@@ -283,7 +293,11 @@ def insert_enrollment(record: Dict[str, Any]) -> int:
             record.get("submission_date", datetime.now().isoformat()),
             0,
             None,
-            None
+            None,
+            record.get("is_new_hire", False),
+            record.get("truck_number"),
+            record.get("first_name"),
+            record.get("last_name")
         ))
         result = cursor.fetchone()
         return result["id"] if isinstance(result, dict) else result[0]

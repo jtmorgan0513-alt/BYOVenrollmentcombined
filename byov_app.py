@@ -988,13 +988,14 @@ def post_to_dashboard_single_request(record: dict, enrollment_id: int = None, en
         "region": record.get("region") or record.get("state") or "",
         "district": record.get("district") or "",
         "enrollmentStatus": record.get("enrollmentStatus", "Enrolled"),
-        "truckId": record.get("truckId") or record.get("truck_id") or "",
+        "truckId": record.get("truckId") or record.get("truck_id") or record.get("truck_number") or "",
         "mobilePhoneNumber": record.get("mobilePhoneNumber") or record.get("mobile") or record.get("phone") or "",
         "techEmail": record.get("techEmail") or record.get("email") or "",
         "cityState": record.get("cityState") or "",
         "vinNumber": record.get("vin") or record.get("vinNumber") or "",
         "insuranceExpiration": format_date(record.get("insurance_exp") or record.get("insuranceExpiration")) or "",
         "registrationExpiration": format_date(record.get("registration_exp") or record.get("registrationExpiration")) or "",
+        "isNewHire": bool(record.get("is_new_hire", False)),
     }
 
     # Optional fields: vehicleMake/Model/Year/industry/dateStartedByov
@@ -1567,16 +1568,28 @@ def wizard_step_1():
     
     data = st.session_state.wizard_data
     
-    # Technician fields
-    full_name = st.text_input(
-        "Full Name", 
-        value=data.get('full_name', ''),
-        key="wiz_full_name",
-        autocomplete="name"
-    )
+    # Technician fields - First Name and Last Name
+    col1, col2 = st.columns(2)
+    with col1:
+        first_name = st.text_input(
+            "First Name", 
+            value=data.get('first_name', ''),
+            key="wiz_first_name",
+            autocomplete="given-name"
+        )
+    with col2:
+        last_name = st.text_input(
+            "Last Name", 
+            value=data.get('last_name', ''),
+            key="wiz_last_name",
+            autocomplete="family-name"
+        )
+    
+    # Combine first and last name for full_name (for dashboard sync compatibility)
+    full_name = f"{first_name} {last_name}".strip()
     
     tech_id = st.text_input(
-        "Tech ID", 
+        "Enterprise ID", 
         value=data.get('tech_id', ''),
         key="wiz_tech_id",
         autocomplete="off"
@@ -1607,6 +1620,46 @@ def wizard_step_1():
         key="wiz_state"
     )
     
+    # Hire Status Section
+    st.subheader("Employment Status")
+    
+    hire_status_options = ["Existing Tech", "New Hire (less than 30 days)"]
+    saved_hire_status = data.get('hire_status', 'Existing Tech')
+    hire_status_idx = hire_status_options.index(saved_hire_status) if saved_hire_status in hire_status_options else 0
+    
+    hire_status = st.selectbox(
+        "Employment Status",
+        hire_status_options,
+        index=hire_status_idx,
+        key="wiz_hire_status"
+    )
+    
+    is_new_hire = hire_status == "New Hire (less than 30 days)"
+    
+    # Truck Number field - with skip option for new hires
+    truck_number = ""
+    if is_new_hire:
+        skip_truck = st.radio(
+            "Current Truck Number",
+            ["Skip (Not Applicable for New Hire)", "Enter Truck Number"],
+            index=0,
+            key="wiz_skip_truck"
+        )
+        if skip_truck == "Enter Truck Number":
+            truck_number = st.text_input(
+                "Truck Number",
+                value=data.get('truck_number', ''),
+                key="wiz_truck_number",
+                autocomplete="off"
+            )
+    else:
+        truck_number = st.text_input(
+            "Current Truck Number",
+            value=data.get('truck_number', ''),
+            key="wiz_truck_number_existing",
+            autocomplete="off"
+        )
+    
     # Industry selection
     st.subheader("Industry Selection")
     st.write("Select all industries that apply:")
@@ -1630,14 +1683,18 @@ def wizard_step_1():
     
     # Validation
     errors = []
-    if not full_name:
-        errors.append("Full Name is required")
+    if not first_name:
+        errors.append("First Name is required")
+    if not last_name:
+        errors.append("Last Name is required")
     if not tech_id:
-        errors.append("Tech ID is required")
+        errors.append("Enterprise ID is required")
     if not district:
         errors.append("District is required")
     if not state:
         errors.append("State selection is required")
+    if not is_new_hire and not truck_number:
+        errors.append("Truck Number is required for existing technicians")
     
     if errors:
         st.warning("Please complete the following:\n" + "\n".join(f"• {msg}" for msg in errors))
@@ -1645,11 +1702,16 @@ def wizard_step_1():
     if st.button("Next ➡", disabled=bool(errors), type="primary", width='stretch'):
         # Save to session state
         st.session_state.wizard_data.update({
+            'first_name': first_name,
+            'last_name': last_name,
             'full_name': full_name,
             'tech_id': tech_id,
             'district': district,
             'state': state,
             'referred_by': referred_by,
+            'hire_status': hire_status,
+            'is_new_hire': is_new_hire,
+            'truck_number': truck_number,
             'industry': selected_industries,
             'industries': selected_industries
         })
@@ -2057,10 +2119,13 @@ def wizard_step_4():
         col1, col2 = st.columns(2)
         with col1:
             st.write(f"**Full Name:** {data.get('full_name', 'N/A')}")
-            st.write(f"**Tech ID:** {data.get('tech_id', 'N/A')}")
+            st.write(f"**Enterprise ID:** {data.get('tech_id', 'N/A')}")
+            employment_status = "New Hire (less than 30 days)" if data.get('is_new_hire') else "Existing Tech"
+            st.write(f"**Employment Status:** {employment_status}")
         with col2:
             st.write(f"**District:** {data.get('district', 'N/A')}")
             st.write(f"**State:** {data.get('state', 'N/A')}")
+            st.write(f"**Truck Number:** {data.get('truck_number') or 'N/A'}")
             st.write(f"**Referred By:** {data.get('referred_by', 'N/A')}")
     
     # Industries
@@ -2229,10 +2294,14 @@ def wizard_step_4():
                 # Create enrollment record in the database
                 db_record = {
                     "full_name": data['full_name'],
+                    "first_name": data.get('first_name', ''),
+                    "last_name": data.get('last_name', ''),
                     "tech_id": data['tech_id'],
                     "district": data['district'],
                     "state": data['state'],
                     "referred_by": data.get('referred_by', ''),
+                    "is_new_hire": data.get('is_new_hire', False),
+                    "truck_number": data.get('truck_number', ''),
                     # Store both new 'industry' and legacy 'industries' for compatibility
                     "industry": data.get('industry', data.get('industries', [])),
                     "industries": data.get('industries', data.get('industry', [])),
@@ -2320,7 +2389,11 @@ def wizard_step_4():
                     "id": enrollment_db_id,
                     "tech_id": data['tech_id'],
                     "full_name": data['full_name'],
+                    "first_name": data.get('first_name', ''),
+                    "last_name": data.get('last_name', ''),
                     "referred_by": data.get('referred_by', ''),
+                    "is_new_hire": data.get('is_new_hire', False),
+                    "truck_number": data.get('truck_number', ''),
                     "district": data['district'],
                     "state": data['state'],
                     "industry": data.get('industry', data.get('industries', [])),
