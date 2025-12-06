@@ -14,13 +14,13 @@ let adminStreamlitReady = false;
 let streamlitCheckInterval: NodeJS.Timeout | null = null;
 
 // Check if a Streamlit backend is ready
-async function checkStreamlitHealth(port: number): Promise<boolean> {
+async function checkStreamlitHealth(port: number, basePath: string): Promise<boolean> {
   return new Promise((resolve) => {
     const req = http.request(
       {
         hostname: "127.0.0.1",
         port: port,
-        path: "/_stcore/health",
+        path: `${basePath}/_stcore/health`,
         method: "GET",
         timeout: 3000,
       },
@@ -45,8 +45,8 @@ function startStreamlitKeepalive() {
     const wasEnrollReady = enrollStreamlitReady;
     const wasAdminReady = adminStreamlitReady;
     
-    enrollStreamlitReady = await checkStreamlitHealth(ENROLL_PORT);
-    adminStreamlitReady = await checkStreamlitHealth(ADMIN_PORT);
+    enrollStreamlitReady = await checkStreamlitHealth(ENROLL_PORT, "/enroll");
+    adminStreamlitReady = await checkStreamlitHealth(ADMIN_PORT, "/admin");
     
     if (!wasEnrollReady && enrollStreamlitReady) {
       console.log(`${new Date().toLocaleTimeString()} [express] Enrollment Streamlit is ready on port ${ENROLL_PORT}`);
@@ -69,9 +69,9 @@ function startStreamlitKeepalive() {
 }
 
 // Wait for a Streamlit to be ready with retries
-async function waitForStreamlit(port: number, maxRetries = 10, delayMs = 500): Promise<boolean> {
+async function waitForStreamlit(port: number, basePath: string, maxRetries = 10, delayMs = 500): Promise<boolean> {
   for (let i = 0; i < maxRetries; i++) {
-    if (await checkStreamlitHealth(port)) {
+    if (await checkStreamlitHealth(port, basePath)) {
       if (port === ENROLL_PORT) enrollStreamlitReady = true;
       if (port === ADMIN_PORT) adminStreamlitReady = true;
       return true;
@@ -254,7 +254,7 @@ export async function registerRoutes(
   app.use("/enroll", async (req: Request, res: Response, next) => {
     if (!enrollStreamlitReady) {
       console.log(`${new Date().toLocaleTimeString()} [enroll-proxy] Enrollment Streamlit not ready, waiting...`);
-      const isReady = await waitForStreamlit(ENROLL_PORT, 8, 300);
+      const isReady = await waitForStreamlit(ENROLL_PORT, "/enroll", 8, 300);
       if (!isReady) {
         return res.status(503).send(loadingPageHtml);
       }
@@ -266,7 +266,7 @@ export async function registerRoutes(
   app.use("/admin", async (req: Request, res: Response, next) => {
     if (!adminStreamlitReady) {
       console.log(`${new Date().toLocaleTimeString()} [admin-proxy] Admin Streamlit not ready, waiting...`);
-      const isReady = await waitForStreamlit(ADMIN_PORT, 8, 300);
+      const isReady = await waitForStreamlit(ADMIN_PORT, "/admin", 8, 300);
       if (!isReady) {
         return res.status(503).send(loadingPageHtml);
       }
@@ -282,12 +282,12 @@ export async function registerRoutes(
   httpServer.on('upgrade', async (req, socket, head) => {
     if (req.url?.startsWith('/enroll')) {
       if (!enrollStreamlitReady) {
-        await waitForStreamlit(ENROLL_PORT, 5, 200);
+        await waitForStreamlit(ENROLL_PORT, "/enroll", 5, 200);
       }
       (enrollProxy as any).upgrade(req, socket, head);
     } else if (req.url?.startsWith('/admin')) {
       if (!adminStreamlitReady) {
-        await waitForStreamlit(ADMIN_PORT, 5, 200);
+        await waitForStreamlit(ADMIN_PORT, "/admin", 5, 200);
       }
       (adminProxy as any).upgrade(req, socket, head);
     }
