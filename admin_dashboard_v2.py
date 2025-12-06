@@ -6,12 +6,14 @@ This module provides the new admin dashboard layout with:
 - Stats bar with VIN, Insurance, Registration, Photos, Signature
 - Document Review expander with tabs
 - Actions expander with styled buttons
+- Top-level tab for Notification Settings (reuses existing admin_dashboard UI if present)
 """
-import streamlit as st
 import os
 import base64
-from typing import List, Dict, Any
 from datetime import datetime
+from typing import List, Dict, Any
+
+import streamlit as st
 
 import database
 import file_storage
@@ -19,9 +21,20 @@ from dashboard_sync import push_to_dashboard_single_request, clear_enrollment_ca
 from admin_dashboard import (
     _get_notification_settings,
     _send_approval_notification,
-    ENROLLMENT_FIELDS,
+    ENROLLMENT_FIELDS,  # kept for compatibility if you use it elsewhere
 )
 from notifications import send_hr_policy_notification
+
+# Try to re-use the old notification settings UI if it exists
+try:
+    from admin_dashboard import render_notification_settings_tab
+except ImportError:  # pragma: no cover
+    render_notification_settings_tab = None
+
+try:
+    from admin_dashboard import render_notification_settings
+except ImportError:  # pragma: no cover
+    render_notification_settings = None
 
 
 def inject_admin_theme_css() -> None:
@@ -258,56 +271,62 @@ def inject_admin_theme_css() -> None:
 def _format_date(date_str) -> str:
     """Format ISO date string to MM/DD/YYYY."""
     if not date_str:
-        return 'N/A'
+        return "N/A"
     try:
         dt = datetime.fromisoformat(str(date_str))
         return dt.strftime("%m/%d/%Y")
     except Exception:
-        return str(date_str) if date_str else 'N/A'
+        return str(date_str) if date_str else "N/A"
 
 
 def get_admin_records() -> List[Dict[str, Any]]:
     """Fetch records for the admin dashboard from the real database."""
     enrollments = database.get_all_enrollments()
-    records = []
-    
+    records: List[Dict[str, Any]] = []
+
     for e in enrollments:
-        enrollment_id = e.get('id')
+        enrollment_id = e.get("id")
         docs = database.get_documents_for_enrollment(enrollment_id)
-        
-        signature_docs = [d for d in docs if d.get('doc_type') == 'signature']
+
+        signature_docs = [d for d in docs if d.get("doc_type") == "signature"]
         signature_exists = False
         for sig_doc in signature_docs:
-            path = sig_doc.get('file_path')
+            path = sig_doc.get("file_path")
             if path and file_storage.file_exists(path):
                 signature_exists = True
                 break
-        
-        photos_count = sum(1 for d in docs if d.get('doc_type') in ('vehicle', 'registration', 'insurance'))
-        
-        vin = e.get('vin', '')
-        vin_tail = vin[-6:] if vin and len(vin) >= 6 else vin or '-'
-        
+
+        photos_count = sum(
+            1 for d in docs if d.get("doc_type") in ("vehicle", "registration", "insurance")
+        )
+
+        vin = e.get("vin", "") or ""
+        vin_tail = vin[-6:] if vin and len(vin) >= 6 else vin or "-"
+
         vehicle = f"{e.get('year', '')} {e.get('make', '')} {e.get('model', '')}".strip()
-        
-        records.append({
-            "id": enrollment_id,
-            "tech_name": e.get('full_name', 'Unknown'),
-            "vehicle": vehicle or 'N/A',
-            "tech_id": e.get('tech_id', ''),
-            "district": e.get('district', ''),
-            "state": e.get('state', ''),
-            "status": "validated" if e.get('approved') == 1 else "in_review",
-            "submitted_date": _format_date(e.get('submission_date')),
-            "vin_tail": vin_tail,
-            "insurance_exp": _format_date(e.get('insurance_exp')),
-            "registration_exp": _format_date(e.get('registration_exp')),
-            "photos_count": photos_count,
-            "signature": signature_exists,
-            "_raw": e,
-            "_docs": docs,
-        })
-    
+
+        records.append(
+            {
+                "id": enrollment_id,
+                "tech_name": e.get("full_name", "Unknown"),
+                "vehicle": vehicle or "N/A",
+                "tech_id": e.get("tech_id", ""),
+                "district": e.get("district", ""),
+                "state": e.get("state", ""),
+                "status": "validated" if e.get("approved") == 1 else "in_review",
+                "submitted_date": _format_date(e.get("submission_date")),
+                # store BOTH full VIN and tail
+                "vin": vin or "-",
+                "vin_tail": vin_tail,
+                "insurance_exp": _format_date(e.get("insurance_exp")),
+                "registration_exp": _format_date(e.get("registration_exp")),
+                "photos_count": photos_count,
+                "signature": signature_exists,
+                "_raw": e,
+                "_docs": docs,
+            }
+        )
+
     return records
 
 
@@ -326,6 +345,37 @@ def render_header(pending_count: int) -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def _get_docs_for_type(docs: List[Dict[str, Any]], doc_type: str) -> List[Dict[str, Any]]:
+    return [d for d in docs if d.get("doc_type") == doc_type]
+
+
+def _read_file_safe(path: str) -> bytes | None:
+    if not path:
+        return None
+    try:
+        if not file_storage.file_exists(path):
+            return None
+        return file_storage.read_file(path)
+    except Exception:
+        return None
+
+
+def _render_pdf_preview(file_bytes: bytes) -> None:
+    if not file_bytes:
+        st.warning("No PDF data available.")
+        return
+    try:
+        b64 = base64.b64encode(file_bytes).decode("utf-8")
+        pdf_html = f"""
+        <div style="width: 100%; height: 400px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+          <iframe src="data:application/pdf;base64,{b64}" width="100%" height="100%" style="border:none;"></iframe>
+        </div>
+        """
+        st.markdown(pdf_html, unsafe_allow_html=True)
+    except Exception:
+        st.warning("Unable to render PDF preview.")
 
 
 def render_record_card(record: Dict[str, Any]) -> None:
@@ -364,7 +414,7 @@ def render_record_card(record: Dict[str, Any]) -> None:
           <div class="stats-bar">
             <div class="stat-item">
               <div class="stat-label">VIN</div>
-              <div class="stat-value mono">{record.get("vin_tail", "-")}</div>
+              <div class="stat-value mono">{record.get("vin", "-")}</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">Insurance Exp</div>
@@ -389,28 +439,56 @@ def render_record_card(record: Dict[str, Any]) -> None:
     )
 
     docs = record.get("_docs", [])
-    
+    raw = record.get("_raw", {}) or {}
+
+    # ---- Tech & Vehicle Details (all inputted info) ----
+    with st.expander("👤 Technician & Vehicle Details", expanded=False):
+        excluded_keys = {
+            "id",
+            "created_at",
+            "updated_at",
+            "last_synced_at",
+        }
+        pretty_rows = []
+        for key, value in raw.items():
+            if key in excluded_keys:
+                continue
+            label = key.replace("_", " ").title()
+            display_val = value if value not in (None, "") else "-"
+            pretty_rows.append((label, display_val))
+
+        if pretty_rows:
+            for label, value in pretty_rows:
+                col_a, col_b = st.columns([1, 2])
+                with col_a:
+                    st.markdown(f"**{label}**")
+                with col_b:
+                    st.write(value)
+        else:
+            st.info("No additional enrollment details found.")
+
+    # ---- Document Review ----
     with st.expander("📁 Document Review – Photos, registration, insurance, signed form", expanded=False):
         tabs = st.tabs(["🚗 Vehicle", "📋 Registration", "🛡️ Insurance", "📄 Form"])
-        
-        vehicle_docs = [d for d in docs if d.get('doc_type') == 'vehicle']
-        reg_docs = [d for d in docs if d.get('doc_type') == 'registration']
-        ins_docs = [d for d in docs if d.get('doc_type') == 'insurance']
-        sig_docs = [d for d in docs if d.get('doc_type') == 'signature']
+
+        vehicle_docs = _get_docs_for_type(docs, "vehicle")
+        reg_docs = _get_docs_for_type(docs, "registration")
+        ins_docs = _get_docs_for_type(docs, "insurance")
+        sig_docs = _get_docs_for_type(docs, "signature")
 
         with tabs[0]:
             if vehicle_docs:
-                cols = st.columns(3)
+                cols = st.columns(4)
                 for idx, doc in enumerate(vehicle_docs):
-                    path = doc.get('file_path')
-                    if path and file_storage.file_exists(path):
-                        with cols[idx % 3]:
-                            try:
-                                img_bytes = file_storage.read_file(path)
-                                st.image(img_bytes, width=200)
-                                st.caption(os.path.basename(path))
-                            except Exception as e:
-                                st.error(f"Error loading: {e}")
+                    path = doc.get("file_path")
+                    if not path:
+                        continue
+                    img_bytes = _read_file_safe(path)
+                    if not img_bytes:
+                        continue
+                    with cols[idx % 4]:
+                        st.image(img_bytes, use_column_width=True)
+                        st.caption(os.path.basename(path))
             else:
                 st.info("No vehicle photos uploaded.")
 
@@ -418,15 +496,18 @@ def render_record_card(record: Dict[str, Any]) -> None:
             if reg_docs:
                 cols = st.columns(3)
                 for idx, doc in enumerate(reg_docs):
-                    path = doc.get('file_path')
-                    if path and file_storage.file_exists(path):
-                        with cols[idx % 3]:
-                            try:
-                                img_bytes = file_storage.read_file(path)
-                                st.image(img_bytes, width=200)
-                                st.caption(os.path.basename(path))
-                            except Exception as e:
-                                st.error(f"Error loading: {e}")
+                    path = doc.get("file_path")
+                    if not path:
+                        continue
+                    file_bytes = _read_file_safe(path)
+                    if not file_bytes:
+                        continue
+                    with cols[idx % 3]:
+                        if path.lower().endswith(".pdf"):
+                            _render_pdf_preview(file_bytes)
+                        else:
+                            st.image(file_bytes, use_column_width=True)
+                        st.caption(os.path.basename(path))
             else:
                 st.info("No registration documents uploaded.")
 
@@ -434,87 +515,72 @@ def render_record_card(record: Dict[str, Any]) -> None:
             if ins_docs:
                 cols = st.columns(3)
                 for idx, doc in enumerate(ins_docs):
-                    path = doc.get('file_path')
-                    if path and file_storage.file_exists(path):
-                        with cols[idx % 3]:
-                            try:
-                                img_bytes = file_storage.read_file(path)
-                                st.image(img_bytes, width=200)
-                                st.caption(os.path.basename(path))
-                            except Exception as e:
-                                st.error(f"Error loading: {e}")
+                    path = doc.get("file_path")
+                    if not path:
+                        continue
+                    file_bytes = _read_file_safe(path)
+                    if not file_bytes:
+                        continue
+                    with cols[idx % 3]:
+                        if path.lower().endswith(".pdf"):
+                            _render_pdf_preview(file_bytes)
+                        else:
+                            st.image(file_bytes, use_column_width=True)
+                        st.caption(os.path.basename(path))
             else:
                 st.info("No insurance documents uploaded.")
 
         with tabs[3]:
             if sig_docs:
-                path = sig_docs[0].get('file_path')
-                if path and file_storage.file_exists(path):
-                    try:
-                        pdf_bytes = file_storage.read_file(path)
-                        base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-                        
-                        col1, col2 = st.columns([4, 1])
-                        with col1:
-                            st.caption(f"📄 {os.path.basename(path)}")
-                        with col2:
-                            st.download_button(
-                                label="⬇️ Download",
-                                data=pdf_bytes,
-                                file_name=os.path.basename(path),
-                                mime="application/pdf",
-                                key=f"dl_pdf_{enrollment_id}"
-                            )
-                        
-                        st.markdown(
-                            f'''
-                            <div style="width: 100%; height: 400px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-                                <iframe src="data:application/pdf;base64,{base64_pdf}" 
-                                        width="100%" height="100%" style="border: none;">
-                                </iframe>
-                            </div>
-                            ''',
-                            unsafe_allow_html=True
-                        )
-                    except Exception as e:
-                        st.error(f"Error loading PDF: {e}")
+                path = sig_docs[0].get("file_path")
+                file_bytes = _read_file_safe(path)
+                if file_bytes:
+                    _render_pdf_preview(file_bytes)
+                    st.download_button(
+                        label="⬇️ Download",
+                        data=file_bytes,
+                        file_name=os.path.basename(path or "signed_enrollment.pdf"),
+                        mime="application/pdf",
+                        key=f"dl_pdf_{enrollment_id}",
+                    )
                 else:
                     st.info("Signed form file not found.")
             else:
                 st.info("No signed enrollment form available.")
 
+    # ---- Actions ----
     with st.expander("✅ Actions – Approve enrollment and send notifications", expanded=False):
         col1, col2, col3 = st.columns([2, 1.5, 1.5])
-        
+
         with col1:
             st.markdown('<div class="approve-btn">', unsafe_allow_html=True)
             approve = st.button(
                 "✅ Approve & Sync" if not is_validated else "✓ Already Approved",
                 key=f"approve_{enrollment_id}",
                 disabled=is_validated,
-                use_container_width=True
+                use_container_width=True,
             )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
         with col2:
-            has_pdf = any(d.get('doc_type') == 'signature' for d in docs)
+            has_pdf = any(d.get("doc_type") == "signature" for d in docs)
             st.markdown('<div class="pdf-btn">', unsafe_allow_html=True)
             send_pdf = st.button(
                 "📧 PDF to HR",
                 key=f"pdf_{enrollment_id}",
                 disabled=not has_pdf,
-                use_container_width=True
+                use_container_width=True,
             )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
         with col3:
             st.markdown('<div class="notify-btn">', unsafe_allow_html=True)
             notify = st.button(
                 "📧 Notify",
                 key=f"notify_{enrollment_id}",
-                use_container_width=True
+                use_container_width=True,
             )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown(
             """
@@ -525,31 +591,42 @@ def render_record_card(record: Dict[str, Any]) -> None:
             unsafe_allow_html=True,
         )
 
+        # Approve & Sync
         if approve and not is_validated:
-            raw_record = record.get('_raw', {})
+            raw_record = raw
             result = push_to_dashboard_single_request(raw_record, enrollment_id=enrollment_id)
-            
-            status_code = result.get('status_code', 0)
-            if result.get('error'):
+
+            status_code = result.get("status_code", 0)
+            if result.get("error"):
                 st.error(f"Error: {result.get('error')}")
             elif status_code in (200, 201) or (200 <= status_code < 300 and status_code != 207):
                 try:
                     database.approve_enrollment(enrollment_id)
-                    database.mark_checklist_task_by_key(enrollment_id, 'approved_synced', True, 'System - Dashboard Sync')
+                    database.mark_checklist_task_by_key(
+                        enrollment_id,
+                        "approved_synced",
+                        True,
+                        "System - Dashboard Sync",
+                    )
                     clear_enrollment_cache()
                 except Exception:
                     pass
-                
+
                 settings = _get_notification_settings()
-                if settings.get('approval', {}).get('enabled'):
+                if settings.get("approval", {}).get("enabled"):
                     _send_approval_notification(raw_record, enrollment_id)
-                
+
                 st.success("Enrollment approved and synced to dashboard!")
                 st.rerun()
             elif status_code == 207:
                 try:
                     database.approve_enrollment(enrollment_id)
-                    database.mark_checklist_task_by_key(enrollment_id, 'approved_synced', True, 'System - Dashboard Sync')
+                    database.mark_checklist_task_by_key(
+                        enrollment_id,
+                        "approved_synced",
+                        True,
+                        "System - Dashboard Sync",
+                    )
                     clear_enrollment_cache()
                 except Exception:
                     pass
@@ -558,17 +635,26 @@ def render_record_card(record: Dict[str, Any]) -> None:
             else:
                 st.error(f"Dashboard error: status {status_code}")
 
+        # PDF to HR
         if send_pdf:
-            sig_doc = next((d for d in docs if d.get('doc_type') == 'signature'), None)
+            sig_doc = next((d for d in docs if d.get("doc_type") == "signature"), None)
             if sig_doc:
-                path = sig_doc.get('file_path')
-                if path and file_storage.file_exists(path):
+                path = sig_doc.get("file_path")
+                file_bytes = _read_file_safe(path)
+                if file_bytes:
                     settings = _get_notification_settings()
-                    hr_email = settings.get('hr_pdf', {}).get('recipients', 'tyler.morgan@transformco.com')
-                    raw_record = record.get('_raw', {})
+                    hr_email = settings.get("hr_pdf", {}).get(
+                        "recipients", "tyler.morgan@transformco.com"
+                    )
+                    raw_record = raw
                     result = send_hr_policy_notification(raw_record, path, hr_email)
-                    if result.get('success'):
-                        database.mark_checklist_task_by_key(enrollment_id, 'policy_hshr', True, 'System - HR Email Sent')
+                    if result.get("success"):
+                        database.mark_checklist_task_by_key(
+                            enrollment_id,
+                            "policy_hshr",
+                            True,
+                            "System - HR Email Sent",
+                        )
                         st.success(f"Signed policy form sent to {hr_email}!")
                         st.rerun()
                     else:
@@ -578,15 +664,18 @@ def render_record_card(record: Dict[str, Any]) -> None:
             else:
                 st.warning("No signed PDF available")
 
+        # Notify technician
         if notify:
-            raw_record = record.get('_raw', {})
+            raw_record = raw
             result = _send_approval_notification(raw_record, enrollment_id)
             if result is True:
                 st.success("Notification sent!")
-            elif result and result.get('error'):
+            elif result and result.get("error"):
                 st.error(f"Error: {result.get('error')}")
             else:
-                st.warning("Notifications not configured. Configure in notification settings.")
+                st.warning(
+                    "Notifications not configured. Adjust in Notification Settings tab."
+                )
 
 
 def main() -> None:
@@ -596,14 +685,34 @@ def main() -> None:
     records = get_admin_records()
     pending_count = sum(1 for r in records if r.get("status") == "in_review")
 
+    # Header is shared across views
     render_header(pending_count)
 
-    if not records:
-        st.info("No enrollments found. Technicians will appear here after submitting enrollment forms.")
-        return
+    # Top-level tabs: Enrollment vs Notification Settings
+    tab_enroll, tab_settings = st.tabs(["Enrollment Review", "Notification Settings"])
 
-    for rec in records:
-        render_record_card(rec)
+    with tab_enroll:
+        if not records:
+            st.info(
+                "No enrollments found. Technicians will appear here after submitting enrollment forms."
+            )
+            return
+
+        for rec in records:
+            render_record_card(rec)
+
+    with tab_settings:
+        # Reuse existing email/notification settings UI if available
+        if render_notification_settings_tab is not None:
+            render_notification_settings_tab()
+        elif render_notification_settings is not None:
+            render_notification_settings()
+        else:
+            st.warning(
+                "Notification settings UI is not available in admin_dashboard.py. "
+                "The backend still reads settings via _get_notification_settings(), "
+                "but the configuration screen needs to be wired back in manually."
+            )
 
 
 if __name__ == "__main__":
