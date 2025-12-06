@@ -380,7 +380,7 @@ def _render_overview_tab(row, enrollment_id):
 
 def _handle_approval(row, enrollment_id):
     """Handle the approval workflow."""
-    from byov_app import post_to_dashboard_single_request, clear_enrollment_cache
+    from dashboard_sync import post_to_dashboard_single_request, clear_enrollment_cache
     
     record = dict(row)
     single_result = post_to_dashboard_single_request(record, enrollment_id=enrollment_id)
@@ -420,7 +420,7 @@ def _handle_approval(row, enrollment_id):
 
 def _handle_delete(row, enrollment_id):
     """Handle enrollment deletion."""
-    from byov_app import clear_enrollment_cache
+    from dashboard_sync import clear_enrollment_cache
     try:
         tech_id = row.get('tech_id', 'unknown')
         docs = database.get_documents_for_enrollment(enrollment_id)

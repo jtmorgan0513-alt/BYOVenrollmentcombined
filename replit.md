@@ -18,16 +18,25 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-The system comprises a dual-application setup connected via a proxy:
+The system comprises a tri-application setup connected via a proxy:
 
-1.  **React Landing Page** (Port 5000): Serves as the public-facing frontend, offering a marketing landing page, benefits calculator, state selector, and testimonials. It includes an AI Chatbot for program information and "Enroll Now" and "Admin" buttons to access the Streamlit application.
-2.  **Streamlit Enrollment Engine** (Port 8000): Handles the core enrollment wizard and an admin dashboard for managing submissions.
+1.  **React Landing Page** (Port 5000): Serves as the public-facing frontend, offering a marketing landing page, benefits calculator, state selector, and testimonials. It includes an AI Chatbot for program information and "Enroll Now" and "Admin" buttons to access the Streamlit applications.
+2.  **Streamlit Enrollment App** (Port 8000, route `/enroll`): Handles the core enrollment wizard for technicians to submit vehicle information, documents, signatures, and photos.
+3.  **Streamlit Admin App** (Port 8080, route `/admin`): Provides the admin control center for managing approvals and syncing with the external dashboard.
 
-**Proxy Integration:** An Express server proxies the Streamlit app through port 5000 to manage Replit's single-port limitation, handling redirects for enrollment (`/enroll`) and admin (`/admin`) paths and WebSocket connections.
+**Key Application Files:**
+*   `enrollment_app.py`: Enrollment wizard (port 8000)
+*   `admin_app.py`: Admin dashboard (port 8080)
+*   `dashboard_sync.py`: Shared module for dashboard sync functions (push_to_dashboard, pull_dashboard_data, push_dashboard_update)
+*   `byov_app.py`: DEPRECATED legacy monolithic app (kept for reference only)
+
+**Proxy Integration:** An Express server proxies both Streamlit apps through port 5000 to manage Replit's single-port limitation. Routes `/enroll/*` proxy to port 8000, routes `/admin/*` proxy to port 8080. Both HTTP and WebSocket connections are handled with automatic health checks and keepalive pings.
 
 **Landing Page Frontend (React):** Built with React + TypeScript, Tailwind CSS, Radix UI, and shadcn/ui. Features a responsive design, Framer Motion animations, and an OpenAI-powered AI Chatbot providing comprehensive BYOV program knowledge.
 
-**Enrollment Engine Frontend (Streamlit):** A Streamlit-based web application providing a multi-step wizard workflow (Tech Info → Vehicle & Docs → Policy & Signature → Review & Submit). Includes VIN decoding, a digital signature pad, photo/document upload, and an Admin Control Center. Performance is optimized with caching mechanisms. Special workflow for California enrollments integrates DocuSign for compliant electronic signatures.
+**Enrollment Engine (enrollment_app.py):** A Streamlit-based web application providing a multi-step wizard workflow (Tech Info → Vehicle & Docs → Policy & Signature → Review & Submit). Includes VIN decoding, a digital signature pad, photo/document upload. Performance is optimized with caching mechanisms. Special workflow for California enrollments integrates DocuSign for compliant electronic signatures.
+
+**Admin Dashboard (admin_app.py):** A Streamlit-based admin control center with login authentication, technician enrollment list, approval workflow, document viewing, checklist management, notification settings, and dashboard sync functionality. Injects custom CSS theme for polished appearance.
 
 **Backend Architecture:**
 *   **Database Layer:** Primarily PostgreSQL with connection pooling (ThreadedConnectionPool, min 2, max 10 connections). SQLite/JSON fallback available. Uses an abstraction layer for flexible database management.
@@ -45,11 +54,12 @@ The system comprises a dual-application setup connected via a proxy:
 *   **Health Endpoint:** `/health` endpoint for deployment monitoring and load balancer health checks.
 
 **Reliability Features:**
-*   **Streamlit Keepalive:** Express server pings Streamlit backend every 30 seconds to prevent cold starts.
-*   **Startup Health Check:** Express proxy verifies Streamlit is ready before accepting requests via `/_stcore/health` endpoint.
+*   **Streamlit Keepalive:** Express server pings both Streamlit backends every 30 seconds to prevent cold starts.
+*   **Startup Health Check:** Express proxy verifies both Streamlit apps are ready before accepting requests via `/_stcore/health` endpoint.
 *   **Retry with Backoff:** Exponential backoff retry logic (8 retries, 300ms initial delay) for graceful Streamlit connection handling.
 *   **Friendly Loading State:** Shows branded loading page with spinner instead of server errors during startup.
 *   **Extended Proxy Timeouts:** Increased timeout from 30s to 60s for long-running operations.
+*   **Dual Process Management:** Production server manages both Streamlit processes with independent health monitoring and restart logic.
 
 **Data Flow & Admin Workflow:**
 Enrollment submission involves data validation, photo uploads, signature capture (or DocuSign for CA), saving to the database, PDF generation (or DocuSign request), and optional email notifications. The Admin Approval Workflow in the Streamlit dashboard provides a comprehensive interface for reviewing enrollments, managing checklists, viewing documents, and approving submissions, which triggers dashboard sync and custom email notifications.

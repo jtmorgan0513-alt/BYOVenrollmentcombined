@@ -4,17 +4,22 @@ import { createProxyMiddleware, Options } from "http-proxy-middleware";
 import OpenAI from "openai";
 import http from "http";
 
+// Streamlit backend ports
+const ENROLL_PORT = 8000;
+const ADMIN_PORT = 8080;
+
 // Streamlit backend health state
-let streamlitReady = false;
+let enrollStreamlitReady = false;
+let adminStreamlitReady = false;
 let streamlitCheckInterval: NodeJS.Timeout | null = null;
 
-// Check if Streamlit backend is ready
-async function checkStreamlitHealth(): Promise<boolean> {
+// Check if a Streamlit backend is ready
+async function checkStreamlitHealth(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const req = http.request(
       {
         hostname: "127.0.0.1",
-        port: 8000,
+        port: port,
         path: "/_stcore/health",
         method: "GET",
         timeout: 3000,
@@ -32,17 +37,27 @@ async function checkStreamlitHealth(): Promise<boolean> {
   });
 }
 
-// Start keepalive ping to Streamlit backend
+// Start keepalive ping to both Streamlit backends
 function startStreamlitKeepalive() {
   if (streamlitCheckInterval) return;
   
   const checkAndLog = async () => {
-    const wasReady = streamlitReady;
-    streamlitReady = await checkStreamlitHealth();
-    if (!wasReady && streamlitReady) {
-      console.log(`${new Date().toLocaleTimeString()} [express] Streamlit backend is ready`);
-    } else if (wasReady && !streamlitReady) {
-      console.log(`${new Date().toLocaleTimeString()} [express] Streamlit backend went offline`);
+    const wasEnrollReady = enrollStreamlitReady;
+    const wasAdminReady = adminStreamlitReady;
+    
+    enrollStreamlitReady = await checkStreamlitHealth(ENROLL_PORT);
+    adminStreamlitReady = await checkStreamlitHealth(ADMIN_PORT);
+    
+    if (!wasEnrollReady && enrollStreamlitReady) {
+      console.log(`${new Date().toLocaleTimeString()} [express] Enrollment Streamlit is ready on port ${ENROLL_PORT}`);
+    } else if (wasEnrollReady && !enrollStreamlitReady) {
+      console.log(`${new Date().toLocaleTimeString()} [express] Enrollment Streamlit went offline`);
+    }
+    
+    if (!wasAdminReady && adminStreamlitReady) {
+      console.log(`${new Date().toLocaleTimeString()} [express] Admin Streamlit is ready on port ${ADMIN_PORT}`);
+    } else if (wasAdminReady && !adminStreamlitReady) {
+      console.log(`${new Date().toLocaleTimeString()} [express] Admin Streamlit went offline`);
     }
   };
   
@@ -53,15 +68,16 @@ function startStreamlitKeepalive() {
   streamlitCheckInterval = setInterval(checkAndLog, 30000);
 }
 
-// Wait for Streamlit to be ready with retries
-async function waitForStreamlit(maxRetries = 10, delayMs = 500): Promise<boolean> {
+// Wait for a Streamlit to be ready with retries
+async function waitForStreamlit(port: number, maxRetries = 10, delayMs = 500): Promise<boolean> {
   for (let i = 0; i < maxRetries; i++) {
-    if (await checkStreamlitHealth()) {
-      streamlitReady = true;
+    if (await checkStreamlitHealth(port)) {
+      if (port === ENROLL_PORT) enrollStreamlitReady = true;
+      if (port === ADMIN_PORT) adminStreamlitReady = true;
       return true;
     }
     await new Promise(resolve => setTimeout(resolve, delayMs));
-    delayMs = Math.min(delayMs * 1.5, 2000); // Exponential backoff, max 2 seconds
+    delayMs = Math.min(delayMs * 1.5, 2000);
   }
   return false;
 }
@@ -172,117 +188,108 @@ export async function registerRoutes(
     }
   });
 
-  // Redirect enrollment to streamlit app with enrollment mode
-  app.get("/enroll", (_req: Request, res: Response) => {
-    res.redirect("/streamlit/?mode=enroll");
-  });
-  
-  // Redirect admin to streamlit app with admin mode
-  app.get("/admin", (_req: Request, res: Response) => {
-    res.redirect("/streamlit/?mode=admin");
-  });
-
-  // DocuSign confirmation endpoint - redirects to Streamlit confirmation page
+  // DocuSign confirmation endpoint - redirects to Streamlit enrollment app
   app.get("/confirm-docusign/:token", (req: Request, res: Response) => {
     const { token } = req.params;
-    res.redirect(`/streamlit/?mode=confirm_docusign&token=${encodeURIComponent(token)}`);
+    res.redirect(`/enroll/?mode=confirm_docusign&token=${encodeURIComponent(token)}`);
   });
 
-  // Start the keepalive ping to Streamlit backend
+  // Start the keepalive ping to Streamlit backends
   startStreamlitKeepalive();
 
-  // Proxy configuration for Streamlit app at /streamlit/
-  const streamlitProxy = createProxyMiddleware({
-    target: "http://127.0.0.1:8000",
-    changeOrigin: true,
-    ws: true,
-    pathRewrite: { "^/streamlit": "" },
-    timeout: 60000,
-    proxyTimeout: 60000,
-    on: {
-      error: (err: Error, _req: http.IncomingMessage, res: http.ServerResponse | any) => {
-        console.error(`${new Date().toLocaleTimeString()} [proxy] Error:`, err.message);
-        if (res && 'writeHead' in res && !res.headersSent) {
-          res.writeHead(503, { 'Content-Type': 'text/html' });
-          res.end(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <title>Loading...</title>
-              <meta http-equiv="refresh" content="2">
-              <style>
-                body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
-                .loader { text-align: center; }
-                .spinner { width: 50px; height: 50px; border: 4px solid #e0e0e0; border-top: 4px solid #003366; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                h2 { color: #003366; }
-                p { color: #666; }
-              </style>
-            </head>
-            <body>
-              <div class="loader">
-                <div class="spinner"></div>
-                <h2>Loading Application...</h2>
-                <p>Please wait while we connect you.</p>
-              </div>
-            </body>
-            </html>
-          `);
+  // Loading page HTML
+  const loadingPageHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Loading...</title>
+      <meta http-equiv="refresh" content="2">
+      <style>
+        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
+        .loader { text-align: center; }
+        .spinner { width: 50px; height: 50px; border: 4px solid #e0e0e0; border-top: 4px solid #003366; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        h2 { color: #003366; }
+        p { color: #666; }
+      </style>
+    </head>
+    <body>
+      <div class="loader">
+        <div class="spinner"></div>
+        <h2>Loading Application...</h2>
+        <p>Please wait while we connect you.</p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  // Create proxy configuration for a Streamlit app
+  function createStreamlitProxy(targetPort: number, name: string) {
+    return createProxyMiddleware({
+      target: `http://127.0.0.1:${targetPort}`,
+      changeOrigin: true,
+      ws: true,
+      timeout: 60000,
+      proxyTimeout: 60000,
+      on: {
+        error: (err: Error, _req: http.IncomingMessage, res: http.ServerResponse | any) => {
+          console.error(`${new Date().toLocaleTimeString()} [${name}-proxy] Error:`, err.message);
+          if (res && 'writeHead' in res && !res.headersSent) {
+            res.writeHead(503, { 'Content-Type': 'text/html' });
+            res.end(loadingPageHtml);
+          }
+        },
+        proxyReq: (_proxyReq: http.ClientRequest, req: http.IncomingMessage) => {
+          console.log(`${new Date().toLocaleTimeString()} [${name}-proxy] ${req.method} ${req.url}`);
         }
-      },
-      proxyReq: (_proxyReq: http.ClientRequest, req: http.IncomingMessage) => {
-        console.log(`${new Date().toLocaleTimeString()} [proxy] ${req.method} ${req.url}`);
       }
-    }
-  } as Options);
-  
-  // Middleware to wait for Streamlit before proxying
-  app.use("/streamlit", async (req: Request, res: Response, next) => {
-    if (!streamlitReady) {
-      console.log(`${new Date().toLocaleTimeString()} [proxy] Streamlit not ready, waiting...`);
-      const isReady = await waitForStreamlit(8, 300);
+    } as Options);
+  }
+
+  // Create separate proxies for enrollment and admin Streamlit apps
+  const enrollProxy = createStreamlitProxy(ENROLL_PORT, 'enroll');
+  const adminProxy = createStreamlitProxy(ADMIN_PORT, 'admin');
+
+  // Middleware to wait for enrollment Streamlit before proxying
+  app.use("/enroll", async (req: Request, res: Response, next) => {
+    if (!enrollStreamlitReady) {
+      console.log(`${new Date().toLocaleTimeString()} [enroll-proxy] Enrollment Streamlit not ready, waiting...`);
+      const isReady = await waitForStreamlit(ENROLL_PORT, 8, 300);
       if (!isReady) {
-        return res.status(503).send(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Loading...</title>
-            <meta http-equiv="refresh" content="3">
-            <style>
-              body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
-              .loader { text-align: center; }
-              .spinner { width: 50px; height: 50px; border: 4px solid #e0e0e0; border-top: 4px solid #003366; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-              @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-              h2 { color: #003366; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="loader">
-              <div class="spinner"></div>
-              <h2>Starting Application...</h2>
-              <p>This may take a moment. The page will refresh automatically.</p>
-            </div>
-          </body>
-          </html>
-        `);
+        return res.status(503).send(loadingPageHtml);
       }
     }
     next();
   });
   
-  // Proxy all Streamlit routes under /streamlit/
-  app.use("/streamlit", streamlitProxy);
-  
-  // Explicit WebSocket upgrade handler for Streamlit connections
-  // This ensures WebSocket handshakes succeed on first load without requiring refresh
-  httpServer.on('upgrade', async (req, socket, head) => {
-    if (req.url?.startsWith('/streamlit')) {
-      // Wait for Streamlit if not ready
-      if (!streamlitReady) {
-        await waitForStreamlit(5, 200);
+  // Middleware to wait for admin Streamlit before proxying
+  app.use("/admin", async (req: Request, res: Response, next) => {
+    if (!adminStreamlitReady) {
+      console.log(`${new Date().toLocaleTimeString()} [admin-proxy] Admin Streamlit not ready, waiting...`);
+      const isReady = await waitForStreamlit(ADMIN_PORT, 8, 300);
+      if (!isReady) {
+        return res.status(503).send(loadingPageHtml);
       }
-      (streamlitProxy as any).upgrade(req, socket, head);
+    }
+    next();
+  });
+  
+  // Proxy routes for enrollment and admin Streamlit apps
+  app.use("/enroll", enrollProxy);
+  app.use("/admin", adminProxy);
+  
+  // WebSocket upgrade handler for both Streamlit connections
+  httpServer.on('upgrade', async (req, socket, head) => {
+    if (req.url?.startsWith('/enroll')) {
+      if (!enrollStreamlitReady) {
+        await waitForStreamlit(ENROLL_PORT, 5, 200);
+      }
+      (enrollProxy as any).upgrade(req, socket, head);
+    } else if (req.url?.startsWith('/admin')) {
+      if (!adminStreamlitReady) {
+        await waitForStreamlit(ADMIN_PORT, 5, 200);
+      }
+      (adminProxy as any).upgrade(req, socket, head);
     }
   });
 

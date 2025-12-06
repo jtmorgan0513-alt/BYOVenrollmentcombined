@@ -4,7 +4,8 @@ const path = require('path');
 const fs = require('fs');
 
 const port = parseInt(process.env.PORT || '5000', 10);
-const STREAMLIT_PORT = 8000;
+const ENROLL_STREAMLIT_PORT = 8000;
+const ADMIN_STREAMLIT_PORT = 8080;
 
 // In production, use PRODUCTION_DATABASE_URL if available
 if (process.env.REPLIT_DEPLOYMENT && process.env.PRODUCTION_DATABASE_URL) {
@@ -75,8 +76,10 @@ GUIDELINES FOR RESPONSES:
 - Encourage enrollment by highlighting benefits
 - Keep responses focused on the BYOV program - politely redirect off-topic questions`;
 
-let streamlitProcess = null;
-let streamlitRestarts = 0;
+let enrollStreamlitProcess = null;
+let adminStreamlitProcess = null;
+let enrollStreamlitRestarts = 0;
+let adminStreamlitRestarts = 0;
 const MAX_STREAMLIT_RESTARTS = 5;
 const RESTART_COOLDOWN_MS = 10000;
 const PREWARM_INTERVAL_MS = 30000;
@@ -91,8 +94,8 @@ function log(message, source = 'production') {
   console.log(`${time} [${source}] ${message}`);
 }
 
-function startStreamlit() {
-  log('Starting Streamlit backend...');
+function startEnrollStreamlit() {
+  log('Starting Enrollment Streamlit backend on port 8000...');
   
   const streamlitEnv = {
     ...process.env,
@@ -102,48 +105,101 @@ function startStreamlit() {
     STREAMLIT_BROWSER_GATHER_USAGE_STATS: 'false'
   };
   
-  streamlitProcess = spawn('streamlit', [
+  enrollStreamlitProcess = spawn('streamlit', [
     'run',
-    'byov_app.py',
-    '--server.port', String(STREAMLIT_PORT),
+    'enrollment_app.py',
+    '--server.port', String(ENROLL_STREAMLIT_PORT),
     '--server.address', '0.0.0.0',
     '--server.headless', 'true',
     '--server.enableCORS', 'false',
     '--server.enableXsrfProtection', 'false',
     '--server.enableWebsocketCompression', 'false',
     '--server.maxUploadSize', '50',
-    '--server.baseUrlPath', '/streamlit'
+    '--server.baseUrlPath', '/enroll'
   ], {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: process.cwd(),
     env: streamlitEnv
   });
 
-  streamlitProcess.stdout.on('data', (data) => {
-    log(data.toString().trim(), 'streamlit');
+  enrollStreamlitProcess.stdout.on('data', (data) => {
+    log(data.toString().trim(), 'enroll-streamlit');
   });
 
-  streamlitProcess.stderr.on('data', (data) => {
-    log(data.toString().trim(), 'streamlit');
+  enrollStreamlitProcess.stderr.on('data', (data) => {
+    log(data.toString().trim(), 'enroll-streamlit');
   });
 
-  streamlitProcess.on('error', (err) => {
-    log(`Streamlit error: ${err.message}`, 'streamlit');
+  enrollStreamlitProcess.on('error', (err) => {
+    log(`Enrollment Streamlit error: ${err.message}`, 'enroll-streamlit');
   });
 
-  streamlitProcess.on('exit', (code, signal) => {
-    log(`Streamlit exited with code ${code}, signal ${signal}`, 'streamlit');
-    if (code !== 0 && streamlitRestarts < MAX_STREAMLIT_RESTARTS) {
-      streamlitRestarts++;
-      log(`Restarting Streamlit (attempt ${streamlitRestarts}/${MAX_STREAMLIT_RESTARTS})...`, 'streamlit');
-      setTimeout(startStreamlit, RESTART_COOLDOWN_MS);
-    } else if (streamlitRestarts >= MAX_STREAMLIT_RESTARTS) {
-      console.error('CRITICAL: Streamlit failed after max restart attempts. Exiting to trigger VM restart.');
-      process.exit(1);
+  enrollStreamlitProcess.on('exit', (code, signal) => {
+    log(`Enrollment Streamlit exited with code ${code}, signal ${signal}`, 'enroll-streamlit');
+    if (code !== 0 && enrollStreamlitRestarts < MAX_STREAMLIT_RESTARTS) {
+      enrollStreamlitRestarts++;
+      log(`Restarting Enrollment Streamlit (attempt ${enrollStreamlitRestarts}/${MAX_STREAMLIT_RESTARTS})...`, 'enroll-streamlit');
+      setTimeout(startEnrollStreamlit, RESTART_COOLDOWN_MS);
+    } else if (enrollStreamlitRestarts >= MAX_STREAMLIT_RESTARTS) {
+      console.error('CRITICAL: Enrollment Streamlit failed after max restart attempts.');
     }
   });
   
-  log(`Streamlit process started with PID: ${streamlitProcess.pid}`, 'streamlit');
+  log(`Enrollment Streamlit process started with PID: ${enrollStreamlitProcess.pid}`, 'enroll-streamlit');
+}
+
+function startAdminStreamlit() {
+  log('Starting Admin Streamlit backend on port 8080...');
+  
+  const streamlitEnv = {
+    ...process.env,
+    STREAMLIT_SERVER_HEADLESS: 'true',
+    STREAMLIT_SERVER_ENABLE_CORS: 'false',
+    STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: 'false',
+    STREAMLIT_BROWSER_GATHER_USAGE_STATS: 'false'
+  };
+  
+  adminStreamlitProcess = spawn('streamlit', [
+    'run',
+    'admin_app.py',
+    '--server.port', String(ADMIN_STREAMLIT_PORT),
+    '--server.address', '0.0.0.0',
+    '--server.headless', 'true',
+    '--server.enableCORS', 'false',
+    '--server.enableXsrfProtection', 'false',
+    '--server.enableWebsocketCompression', 'false',
+    '--server.maxUploadSize', '50',
+    '--server.baseUrlPath', '/admin'
+  ], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: process.cwd(),
+    env: streamlitEnv
+  });
+
+  adminStreamlitProcess.stdout.on('data', (data) => {
+    log(data.toString().trim(), 'admin-streamlit');
+  });
+
+  adminStreamlitProcess.stderr.on('data', (data) => {
+    log(data.toString().trim(), 'admin-streamlit');
+  });
+
+  adminStreamlitProcess.on('error', (err) => {
+    log(`Admin Streamlit error: ${err.message}`, 'admin-streamlit');
+  });
+
+  adminStreamlitProcess.on('exit', (code, signal) => {
+    log(`Admin Streamlit exited with code ${code}, signal ${signal}`, 'admin-streamlit');
+    if (code !== 0 && adminStreamlitRestarts < MAX_STREAMLIT_RESTARTS) {
+      adminStreamlitRestarts++;
+      log(`Restarting Admin Streamlit (attempt ${adminStreamlitRestarts}/${MAX_STREAMLIT_RESTARTS})...`, 'admin-streamlit');
+      setTimeout(startAdminStreamlit, RESTART_COOLDOWN_MS);
+    } else if (adminStreamlitRestarts >= MAX_STREAMLIT_RESTARTS) {
+      console.error('CRITICAL: Admin Streamlit failed after max restart attempts.');
+    }
+  });
+  
+  log(`Admin Streamlit process started with PID: ${adminStreamlitProcess.pid}`, 'admin-streamlit');
 }
 
 const loadingPage = `<!DOCTYPE html>
@@ -216,14 +272,14 @@ const healthServer = http.createServer((req, res) => {
   res.end(loadingPage);
 });
 
-function waitForStreamlit(maxAttempts = 30, interval = 1000) {
+function waitForStreamlit(port, name, maxAttempts = 30, interval = 1000) {
   return new Promise((resolve) => {
     let attempts = 0;
     const check = () => {
       attempts++;
-      const req = http.get(`http://127.0.0.1:${STREAMLIT_PORT}/_stcore/health`, (res) => {
+      const req = http.get(`http://127.0.0.1:${port}/_stcore/health`, (res) => {
         if (res.statusCode === 200) {
-          log('Streamlit is ready');
+          log(`${name} Streamlit is ready on port ${port}`);
           resolve(true);
         } else {
           retry();
@@ -234,7 +290,7 @@ function waitForStreamlit(maxAttempts = 30, interval = 1000) {
     };
     const retry = () => {
       if (attempts >= maxAttempts) {
-        log('Streamlit not responding after max attempts, continuing anyway');
+        log(`${name} Streamlit not responding after max attempts, continuing anyway`);
         resolve(false);
       } else {
         setTimeout(check, interval);
@@ -246,19 +302,31 @@ function waitForStreamlit(maxAttempts = 30, interval = 1000) {
 
 function startPrewarmPing() {
   setInterval(() => {
-    const req = http.get(`http://127.0.0.1:${STREAMLIT_PORT}/_stcore/health`, (res) => {
+    // Ping enrollment Streamlit
+    const enrollReq = http.get(`http://127.0.0.1:${ENROLL_STREAMLIT_PORT}/_stcore/health`, (res) => {
       res.resume();
     });
-    req.on('error', () => {});
-    req.setTimeout(5000, () => req.destroy());
+    enrollReq.on('error', () => {});
+    enrollReq.setTimeout(5000, () => enrollReq.destroy());
+    
+    // Ping admin Streamlit
+    const adminReq = http.get(`http://127.0.0.1:${ADMIN_STREAMLIT_PORT}/_stcore/health`, (res) => {
+      res.resume();
+    });
+    adminReq.on('error', () => {});
+    adminReq.setTimeout(5000, () => adminReq.destroy());
   }, PREWARM_INTERVAL_MS);
   log(`Streamlit pre-warm ping started (every ${PREWARM_INTERVAL_MS/1000}s)`);
 }
 
 healthServer.listen(port, '0.0.0.0', async () => {
   log(`Health check ready on port ${port}`);
-  startStreamlit();
-  await waitForStreamlit();
+  startEnrollStreamlit();
+  startAdminStreamlit();
+  await Promise.all([
+    waitForStreamlit(ENROLL_STREAMLIT_PORT, 'Enrollment'),
+    waitForStreamlit(ADMIN_STREAMLIT_PORT, 'Admin')
+  ]);
   startPrewarmPing();
   loadFullApp();
 });
@@ -356,54 +424,53 @@ async function loadFullApp() {
     // Track active WebSocket connections for cleanup
     const activeWsSockets = new Set();
     
-    const streamlitProxyOptions = {
-      target: `http://127.0.0.1:${STREAMLIT_PORT}`,
-      changeOrigin: false,
-      ws: true,
-      xfwd: true,
-      followRedirects: false,
-      proxyTimeout: 0,
-      timeout: 0,
-      onProxyReq: (proxyReq, req) => {
-        const host = req.headers.host;
-        if (host) {
-          proxyReq.setHeader('X-Forwarded-Host', host);
-          proxyReq.setHeader('X-Forwarded-Proto', 'https');
-          proxyReq.setHeader('X-Real-IP', req.socket.remoteAddress || '127.0.0.1');
-        }
-      },
-      onProxyReqWs: (proxyReq, req, socket) => {
-        const host = req.headers.host;
-        log(`WebSocket upgrade: ${req.url}`, 'ws');
-        if (host) {
-          proxyReq.setHeader('X-Forwarded-Host', host);
-          proxyReq.setHeader('X-Forwarded-Proto', 'https');
-        }
-        
-        // Only add listeners once per socket
-        if (!socket._wsListenersAdded) {
-          socket._wsListenersAdded = true;
-          socket.setMaxListeners(20);
-          activeWsSockets.add(socket);
+    function createStreamlitProxyOptions(targetPort, name) {
+      return {
+        target: `http://127.0.0.1:${targetPort}`,
+        changeOrigin: false,
+        ws: true,
+        xfwd: true,
+        followRedirects: false,
+        proxyTimeout: 0,
+        timeout: 0,
+        onProxyReq: (proxyReq, req) => {
+          const host = req.headers.host;
+          if (host) {
+            proxyReq.setHeader('X-Forwarded-Host', host);
+            proxyReq.setHeader('X-Forwarded-Proto', 'https');
+            proxyReq.setHeader('X-Real-IP', req.socket.remoteAddress || '127.0.0.1');
+          }
+        },
+        onProxyReqWs: (proxyReq, req, socket) => {
+          const host = req.headers.host;
+          log(`WebSocket upgrade (${name}): ${req.url}`, 'ws');
+          if (host) {
+            proxyReq.setHeader('X-Forwarded-Host', host);
+            proxyReq.setHeader('X-Forwarded-Proto', 'https');
+          }
           
-          const cleanup = () => {
-            activeWsSockets.delete(socket);
-            safeSocketDestroy(socket);
-          };
-          
-          socket.once('error', cleanup);
-          socket.once('close', cleanup);
-        }
-      },
-      onError: (err, req, res) => {
-        // Only log non-routine errors
-        if (err.code !== 'ECONNRESET' && err.code !== 'EPIPE') {
-          log(`Proxy error: ${err.code || err.message}`, 'proxy');
-        }
-        try {
-          if (res && typeof res.writeHead === 'function' && !res.headersSent) {
-            res.writeHead(503, { 'Content-Type': 'text/html' });
-            res.end(`<!DOCTYPE html>
+          if (!socket._wsListenersAdded) {
+            socket._wsListenersAdded = true;
+            socket.setMaxListeners(20);
+            activeWsSockets.add(socket);
+            
+            const cleanup = () => {
+              activeWsSockets.delete(socket);
+              safeSocketDestroy(socket);
+            };
+            
+            socket.once('error', cleanup);
+            socket.once('close', cleanup);
+          }
+        },
+        onError: (err, req, res) => {
+          if (err.code !== 'ECONNRESET' && err.code !== 'EPIPE') {
+            log(`Proxy error (${name}): ${err.code || err.message}`, 'proxy');
+          }
+          try {
+            if (res && typeof res.writeHead === 'function' && !res.headersSent) {
+              res.writeHead(503, { 'Content-Type': 'text/html' });
+              res.end(`<!DOCTYPE html>
 <html>
 <head>
   <title>Loading...</title>
@@ -425,56 +492,46 @@ async function loadFullApp() {
   </div>
 </body>
 </html>`);
-          } else if (res && res.destroyed === false) {
-            safeSocketEnd(res);
+            } else if (res && res.destroyed === false) {
+              safeSocketEnd(res);
+            }
+          } catch (e) {
+            // Response already sent or socket closed
           }
-        } catch (e) {
-          // Response already sent or socket closed
-        }
-      },
-      onOpen: (proxySocket) => {
-        log('WebSocket opened to Streamlit', 'ws');
-        
-        // Only add listeners once per socket
-        if (!proxySocket._wsListenersAdded) {
-          proxySocket._wsListenersAdded = true;
-          proxySocket.setMaxListeners(20);
-          activeWsSockets.add(proxySocket);
+        },
+        onOpen: (proxySocket) => {
+          log(`WebSocket opened to ${name} Streamlit`, 'ws');
           
-          const cleanup = () => {
-            activeWsSockets.delete(proxySocket);
-            safeSocketDestroy(proxySocket);
-          };
-          
-          proxySocket.once('error', cleanup);
-          proxySocket.once('close', cleanup);
+          if (!proxySocket._wsListenersAdded) {
+            proxySocket._wsListenersAdded = true;
+            proxySocket.setMaxListeners(20);
+            activeWsSockets.add(proxySocket);
+            
+            const cleanup = () => {
+              activeWsSockets.delete(proxySocket);
+              safeSocketDestroy(proxySocket);
+            };
+            
+            proxySocket.once('error', cleanup);
+            proxySocket.once('close', cleanup);
+          }
+        },
+        onClose: (res, socket, head) => {
+          log(`WebSocket closed (${name})`, 'ws');
+          activeWsSockets.delete(socket);
+          safeSocketDestroy(socket);
         }
-      },
-      onClose: (res, socket, head) => {
-        log('WebSocket closed', 'ws');
-        activeWsSockets.delete(socket);
-        safeSocketDestroy(socket);
-      }
-    };
+      };
+    }
 
-    // Simple redirects to /streamlit (matching dev server behavior)
-    app.get('/enroll', (_req, res) => {
-      res.redirect('/streamlit/?mode=enroll');
-    });
+    // Create separate proxies for enrollment and admin Streamlit apps
+    const enrollProxy = createProxyMiddleware(createStreamlitProxyOptions(ENROLL_STREAMLIT_PORT, 'Enrollment'));
+    const adminProxy = createProxyMiddleware(createStreamlitProxyOptions(ADMIN_STREAMLIT_PORT, 'Admin'));
     
-    app.get('/admin', (_req, res) => {
-      res.redirect('/streamlit/?mode=admin');
-    });
-    
-    app.get('/app', (_req, res) => {
-      res.redirect('/streamlit/');
-    });
-
-    // Single proxy for all Streamlit traffic at /streamlit path
-    // Streamlit is started with baseUrlPath=/streamlit so paths align
-    const streamlitProxy = createProxyMiddleware(streamlitProxyOptions);
-    
-    app.use('/streamlit', streamlitProxy);
+    // Mount proxies at their respective paths
+    // Streamlit apps are started with baseUrlPath matching these paths
+    app.use('/enroll', enrollProxy);
+    app.use('/admin', adminProxy);
 
     const distPath = path.resolve(process.cwd(), 'dist/public');
     if (fs.existsSync(distPath)) {
@@ -508,9 +565,11 @@ async function loadFullApp() {
       }
       
       try {
-        // All Streamlit WebSocket traffic goes through /streamlit path
-        if (url.startsWith('/streamlit')) {
-          streamlitProxy.upgrade(req, socket, head);
+        // Route WebSocket traffic to appropriate Streamlit app
+        if (url.startsWith('/enroll')) {
+          enrollProxy.upgrade(req, socket, head);
+        } else if (url.startsWith('/admin')) {
+          adminProxy.upgrade(req, socket, head);
         } else {
           log(`WS upgrade not handled: ${url}`, 'ws');
           safeSocketWrite(socket, 'HTTP/1.1 404 Not Found\r\n\r\n');
@@ -527,7 +586,8 @@ async function loadFullApp() {
       newHttpServer.listen(port, '0.0.0.0', () => {
         log(`Full server ready on port ${port}`);
         log(`Landing page: /`);
-        log(`Streamlit app: /app`);
+        log(`Enrollment app: /enroll`);
+        log(`Admin dashboard: /admin`);
       });
     });
 
@@ -540,16 +600,22 @@ async function loadFullApp() {
 
 process.on('SIGTERM', () => {
   log('Received SIGTERM, shutting down...');
-  if (streamlitProcess) {
-    streamlitProcess.kill();
+  if (enrollStreamlitProcess) {
+    enrollStreamlitProcess.kill();
+  }
+  if (adminStreamlitProcess) {
+    adminStreamlitProcess.kill();
   }
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
   log('Received SIGINT, shutting down...');
-  if (streamlitProcess) {
-    streamlitProcess.kill();
+  if (enrollStreamlitProcess) {
+    enrollStreamlitProcess.kill();
+  }
+  if (adminStreamlitProcess) {
+    adminStreamlitProcess.kill();
   }
   process.exit(0);
 });

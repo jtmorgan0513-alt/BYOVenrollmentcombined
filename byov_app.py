@@ -1,3 +1,15 @@
+"""
+DEPRECATED: This file is the legacy monolithic BYOV application.
+
+The application has been refactored into separate components:
+- enrollment_app.py: Technician enrollment wizard (port 8000, /enroll route)
+- admin_app.py: Admin control center (port 8001, /admin route)
+- dashboard_sync.py: Shared dashboard sync functions
+
+This file is kept for reference only and should not be used in production.
+Please use enrollment_app.py and admin_app.py instead.
+"""
+
 import json
 import os
 import re
