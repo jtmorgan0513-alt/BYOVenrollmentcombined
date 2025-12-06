@@ -506,22 +506,13 @@ def get_admin_records() -> List[Dict[str, Any]]:
 
 
 def render_header(pending_count: int) -> None:
-    """Render the admin header with Sears logo and pending badge."""
-    logo_path = "static/sears_logo_brand.png"
-    logo_b64 = ""
-    if os.path.exists(logo_path):
-        with open(logo_path, "rb") as f:
-            logo_b64 = base64.b64encode(f.read()).decode("utf-8")
-    
-    logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="height: 40px; margin-right: 12px;" alt="Sears Logo" />' if logo_b64 else ""
-    
+    """Render the admin header with logo and pending badge."""
     st.markdown(
         f"""
         <div class="site-header">
           <div class="header-inner">
             <div class="header-left">
-              {logo_html}
-              <div class="logo">BYOV Admin</div>
+              <div class="logo">Sears BYOV Admin</div>
               <span class="pending-badge">{pending_count} Pending Review{'s' if pending_count != 1 else ''}</span>
             </div>
           </div>
@@ -621,7 +612,7 @@ def render_record_card(record: Dict[str, Any]) -> None:
           <div class="stats-bar">
             <div class="stat-item">
               <div class="stat-label">VIN</div>
-              <div class="stat-value mono">{record.get("vin", "-")}</div>
+              <div class="stat-value mono">{record.get("vin_tail", "-")}</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">Insurance Exp</div>
@@ -1095,6 +1086,12 @@ def render_notification_settings_tab() -> None:
 
 def main() -> None:
     """Main entry point for the admin dashboard."""
+    st.set_page_config(
+        page_title="BYOV Admin Control Center",
+        page_icon="🚗",
+        layout="wide"
+    )
+    
     inject_admin_theme_css()
 
     records = get_admin_records()
