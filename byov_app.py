@@ -688,9 +688,9 @@ def post_to_dashboard(record: dict, enrollment_id: int) -> dict:
         referred_by_val = record.get('referred_by') or record.get('referredBy') or ""
 
         # Step 5: Create technician payload with complete field mapping
-        # enrollmentType: "New Hire" or "Existing Tech" based on is_new_hire
-        is_new_hire = record.get("is_new_hire", False)
-        enrollment_type = "New Hire" if is_new_hire else "Existing Tech"
+        # isNewHire: boolean, hireStatus: "New Hire" or "Existing Tech"
+        is_new_hire = bool(record.get("is_new_hire", False))
+        hire_status = "New Hire" if is_new_hire else "Existing Tech"
         
         payload = {
             "name": record.get("full_name"),
@@ -699,7 +699,8 @@ def post_to_dashboard(record: dict, enrollment_id: int) -> dict:
             "district": record.get("district"),
             "referredBy": referred_by_val,
             "enrollmentStatus": "Enrolled",  # Always "Enrolled" on approval
-            "enrollmentType": enrollment_type,  # "New Hire" or "Existing Tech"
+            "isNewHire": is_new_hire,  # Boolean: true/false
+            "hireStatus": hire_status,  # String: "New Hire" or "Existing Tech"
             "truckId": record.get("truck_number") or "",  # Truck Number
             "dateStartedByov": date_started,
             "vinNumber": record.get("vin"),
@@ -991,9 +992,9 @@ def post_to_dashboard_single_request(record: dict, enrollment_id: int = None, en
 
     # Build payload mapping according to external API
     # Use empty strings for missing optional string fields to avoid null validation errors
-    # enrollmentType: "New Hire" or "Existing Tech" based on is_new_hire
-    is_new_hire = record.get("is_new_hire", False)
-    enrollment_type = "New Hire" if is_new_hire else "Existing Tech"
+    # isNewHire: boolean, hireStatus: "New Hire" or "Existing Tech"
+    is_new_hire = bool(record.get("is_new_hire", False))
+    hire_status = "New Hire" if is_new_hire else "Existing Tech"
     
     payload = {
         "name": record.get("full_name") or record.get("name") or "",
@@ -1001,7 +1002,8 @@ def post_to_dashboard_single_request(record: dict, enrollment_id: int = None, en
         "region": record.get("region") or record.get("state") or "",
         "district": record.get("district") or "",
         "enrollmentStatus": record.get("enrollmentStatus", "Enrolled"),
-        "enrollmentType": enrollment_type,  # "New Hire" or "Existing Tech"
+        "isNewHire": is_new_hire,  # Boolean: true/false
+        "hireStatus": hire_status,  # String: "New Hire" or "Existing Tech"
         "truckId": record.get("truckId") or record.get("truck_id") or record.get("truck_number") or "",
         "mobilePhoneNumber": record.get("mobilePhoneNumber") or record.get("mobile") or record.get("phone") or "",
         "techEmail": record.get("techEmail") or record.get("email") or "",
