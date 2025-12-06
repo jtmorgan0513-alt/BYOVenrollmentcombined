@@ -223,12 +223,12 @@ export async function registerRoutes(
     </html>
   `;
 
-  // Create proxy configuration for a Streamlit app
-  function createStreamlitProxy(targetPort: number, name: string, server: Server) {
+  // Create proxy configuration for a Streamlit app (HTTP only, WS handled separately)
+  function createStreamlitProxy(targetPort: number, name: string) {
     const proxy = createProxyMiddleware({
       target: `http://127.0.0.1:${targetPort}`,
       changeOrigin: true,
-      ws: true,
+      ws: false,
       timeout: 60000,
       proxyTimeout: 60000,
       on: {
@@ -247,9 +247,25 @@ export async function registerRoutes(
     return proxy;
   }
 
+  // Create WebSocket proxy for Streamlit apps
+  function createWsProxy(targetPort: number, name: string) {
+    return createProxyMiddleware({
+      target: `ws://127.0.0.1:${targetPort}`,
+      changeOrigin: true,
+      ws: true,
+      on: {
+        error: (err: Error) => {
+          console.error(`${new Date().toLocaleTimeString()} [${name}-ws] Error:`, err.message);
+        }
+      }
+    } as Options);
+  }
+
   // Create separate proxies for enrollment and admin Streamlit apps
-  const enrollProxy = createStreamlitProxy(ENROLL_PORT, 'enroll', httpServer);
-  const adminProxy = createStreamlitProxy(ADMIN_PORT, 'admin', httpServer);
+  const enrollProxy = createStreamlitProxy(ENROLL_PORT, 'enroll');
+  const adminProxy = createStreamlitProxy(ADMIN_PORT, 'admin');
+  const enrollWsProxy = createWsProxy(ENROLL_PORT, 'enroll');
+  const adminWsProxy = createWsProxy(ADMIN_PORT, 'admin');
 
   // Middleware to wait for enrollment Streamlit before proxying
   app.use("/enroll", async (req: Request, res: Response, next) => {
@@ -279,15 +295,13 @@ export async function registerRoutes(
   app.use("/enroll", enrollProxy);
   app.use("/admin", adminProxy);
   
-  // WebSocket upgrade handler for both Streamlit connections
+  // WebSocket upgrade handler
   httpServer.on('upgrade', (req, socket, head) => {
     const url = req.url || '';
     if (url.startsWith('/enroll')) {
-      console.log(`${new Date().toLocaleTimeString()} [enroll-ws] WebSocket upgrade: ${url}`);
-      enrollProxy.upgrade!(req as any, socket as any, head);
+      enrollWsProxy.upgrade!(req as any, socket as any, head);
     } else if (url.startsWith('/admin')) {
-      console.log(`${new Date().toLocaleTimeString()} [admin-ws] WebSocket upgrade: ${url}`);
-      adminProxy.upgrade!(req as any, socket as any, head);
+      adminWsProxy.upgrade!(req as any, socket as any, head);
     }
   });
 
