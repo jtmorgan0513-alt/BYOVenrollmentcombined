@@ -224,8 +224,8 @@ export async function registerRoutes(
   `;
 
   // Create proxy configuration for a Streamlit app
-  function createStreamlitProxy(targetPort: number, name: string) {
-    return createProxyMiddleware({
+  function createStreamlitProxy(targetPort: number, name: string, server: Server) {
+    const proxy = createProxyMiddleware({
       target: `http://127.0.0.1:${targetPort}`,
       changeOrigin: true,
       ws: true,
@@ -244,11 +244,12 @@ export async function registerRoutes(
         }
       }
     } as Options);
+    return proxy;
   }
 
   // Create separate proxies for enrollment and admin Streamlit apps
-  const enrollProxy = createStreamlitProxy(ENROLL_PORT, 'enroll');
-  const adminProxy = createStreamlitProxy(ADMIN_PORT, 'admin');
+  const enrollProxy = createStreamlitProxy(ENROLL_PORT, 'enroll', httpServer);
+  const adminProxy = createStreamlitProxy(ADMIN_PORT, 'admin', httpServer);
 
   // Middleware to wait for enrollment Streamlit before proxying
   app.use("/enroll", async (req: Request, res: Response, next) => {
@@ -279,17 +280,14 @@ export async function registerRoutes(
   app.use("/admin", adminProxy);
   
   // WebSocket upgrade handler for both Streamlit connections
-  httpServer.on('upgrade', async (req, socket, head) => {
-    if (req.url?.startsWith('/enroll')) {
-      if (!enrollStreamlitReady) {
-        await waitForStreamlit(ENROLL_PORT, "/enroll", 5, 200);
-      }
-      (enrollProxy as any).upgrade(req, socket, head);
-    } else if (req.url?.startsWith('/admin')) {
-      if (!adminStreamlitReady) {
-        await waitForStreamlit(ADMIN_PORT, "/admin", 5, 200);
-      }
-      (adminProxy as any).upgrade(req, socket, head);
+  httpServer.on('upgrade', (req, socket, head) => {
+    const url = req.url || '';
+    if (url.startsWith('/enroll')) {
+      console.log(`${new Date().toLocaleTimeString()} [enroll-ws] WebSocket upgrade: ${url}`);
+      enrollProxy.upgrade!(req as any, socket as any, head);
+    } else if (url.startsWith('/admin')) {
+      console.log(`${new Date().toLocaleTimeString()} [admin-ws] WebSocket upgrade: ${url}`);
+      adminProxy.upgrade!(req as any, socket as any, head);
     }
   });
 
