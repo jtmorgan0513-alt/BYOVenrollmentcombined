@@ -1,0 +1,8 @@
+# BYOV REFRACTOR INSTRUCTIONS FOR REPLIT AGENT
+You are refactoring an existing Streamlit + Node/Vite application. 
+Follow these instructions EXACTLY and DO NOT perform any other changes.
+Do not modify business logic, data models, or calculation code.
+Do not simplify, delete, or alter the Node/Vite landing page except where explicitly stated.
+If a step is unclear, STOP and ask for clarification instead of guessing.
+
+[... trimmed here for brevity in this example ...]

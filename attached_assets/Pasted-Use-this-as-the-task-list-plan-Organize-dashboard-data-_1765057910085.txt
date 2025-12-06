@@ -1,0 +1,183 @@
+Use this as the task list / plan:
+
+Organize dashboard data functions into a shared file
+
+Create dashboard_sync.py.
+
+Move all existing dashboard sync logic out of byov_app.py into:
+
+pull_dashboard_data()
+
+push_to_dashboard(record)
+
+push_dashboard_update(updated_record)
+
+Keep payload shapes, endpoints, and logic identical.
+
+Update imports in other files to use dashboard_sync and remove any remaining imports of these functions from byov_app.py.
+
+Build the enrollment app with full workflow
+
+Create enrollment_app.py.
+
+At the top, call:
+
+st.set_page_config(page_title="Sears BYOV Enrollment", layout="wide") (once).
+
+Move the entire technician-facing enrollment flow here:
+
+Landing/intro + lookup
+
+VIN decode + vehicle selection
+
+MPG workflow
+
+Signature capture
+
+PDF generation
+
+Email sending
+
+Final submission logic
+
+Where the original code pushed enrollment to the dashboard, call push_to_dashboard(technician_record) from dashboard_sync.
+
+Create the admin app with all admin features
+
+Create admin_app.py.
+
+At the top, call:
+
+st.set_page_config(page_title="BYOV Admin Dashboard", layout="wide") (once).
+
+Move all admin-only functionality here:
+
+Admin login
+
+Technician list + filters
+
+Record editing / status updates
+
+Survey creation, distribution, and response viewing
+
+Custom SMS features
+
+Recycle bin / soft delete
+
+Audit logging
+
+PDF review/download
+
+Import and use pull_dashboard_data() and push_dashboard_update() from dashboard_sync wherever the admin UI interacts with the dashboard/backend.
+
+Add custom styling to the admin app
+
+In admin_app.py, implement:
+
+def inject_admin_theme_css():
+    import streamlit as st
+    st.markdown(open("byov-preferred.html").read(), unsafe_allow_html=True)
+
+
+After successful admin login and before rendering the main dashboard UI, call inject_admin_theme_css().
+
+Keep layout consistent with the current HTML design using st.tabs, st.columns, st.expander, etc.
+
+Configure workflow for two Streamlit processes
+
+Update the Node/Express server code so it starts two separate Streamlit processes:
+
+enrollment_app.py on port 8000
+
+admin_app.py on port 8001
+
+Ensure both are started/stopped reliably as part of the existing workflow (wherever the single Streamlit process was handled before).
+
+Run two apps with proxy routing
+
+In the Node/Express server, replace the single proxy with two:
+
+/enroll → http://localhost:8000 (enrollment Streamlit)
+
+/admin → http://localhost:8001 (admin Streamlit)
+
+Proxy both HTTP and WebSockets for each route so Streamlit works correctly (including live updates).
+
+Update landing page button links
+
+In the Node/Vite landing page, change only the button targets:
+
+Technician enrollment button → /enroll
+
+Admin control center button → /admin
+
+Do not change the layout, styling, or other content.
+
+Mark the old monolithic file as legacy
+
+Leave byov_app.py in the repo, but ensure it is no longer used as an entrypoint.
+
+Add a clear comment at the top:
+
+# Legacy-only. Not used after refactor.
+
+
+Confirm no files import from byov_app.py.
+
+Remove unused code and imports
+
+In all touched Python and Node files:
+
+Remove unused imports and dead code paths left over from the split.
+
+Ensure there are no references to removed constants like a single STREAMLIT_PORT.
+
+Verify all features and setup
+
+Enrollment app:
+
+Starts successfully via /enroll.
+
+Completes full enrollment end-to-end.
+
+Generates PDF and sends the email.
+
+Pushes the enrollment to the dashboard via push_to_dashboard.
+
+Admin app:
+
+Starts successfully via /admin.
+
+Theme from byov-preferred.html is applied after login.
+
+Login works.
+
+Technician list loads correctly.
+
+Editing/updating/deleting technicians works.
+
+Survey creation, distribution, and response review works.
+
+Custom SMS sending works.
+
+Recycle bin / restore / permanent delete works.
+
+Audit log updates correctly.
+
+Infrastructure:
+
+Node/Vite structure is unchanged except for button links.
+
+Two Streamlit processes are running on ports 8000 and 8001.
+
+Proxy routing for /enroll and /admin works, including WebSockets.
+
+No circular imports, no broken imports, no runtime errors.
+
+No business logic, calculations, or payload shapes have been altered.
+
+If you want to hand that straight to the agent, you can prepend:
+
+“Use the following ordered task list as your execution plan. Do not skip any steps, and show me this plan before making code changes:”
+
+and then paste the list.
