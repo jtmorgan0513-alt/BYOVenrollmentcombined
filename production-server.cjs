@@ -3,7 +3,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-const port = parseInt(process.env.PORT || '3000', 10);
+const port = parseInt(process.env.PORT || '5000', 10);
 const STREAMLIT_PORT = 8000;
 
 // In production, use PRODUCTION_DATABASE_URL if available

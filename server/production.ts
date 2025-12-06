@@ -3,7 +3,7 @@ import { spawn, ChildProcess } from "child_process";
 import path from "path";
 import fs from "fs";
 
-const port = parseInt(process.env.PORT || "3000", 10);
+const port = parseInt(process.env.PORT || "5000", 10);
 const STREAMLIT_PORT = 8000;
 
 let streamlitProcess: ChildProcess | null = null;
