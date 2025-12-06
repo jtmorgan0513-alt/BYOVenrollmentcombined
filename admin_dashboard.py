@@ -268,7 +268,7 @@ def _render_overview_tab(row, enrollment_id):
             {row.get('full_name', 'N/A')}
         </h3>
         <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 13px;">
-            Tech ID: <strong>{row.get('tech_id', 'N/A')}</strong> | 
+            Enterprise ID: <strong>{row.get('tech_id', 'N/A')}</strong> | 
             District: <strong>{row.get('district', 'N/A')}</strong> | 
             State: <strong>{row.get('state', 'N/A')}</strong> |
             Vehicle: <strong>{vehicle_info}</strong>
@@ -281,7 +281,10 @@ def _render_overview_tab(row, enrollment_id):
     with col1:
         st.markdown("**Technician**")
         st.write(f"Name: {row.get('full_name', 'N/A')}")
-        st.write(f"Tech ID: {row.get('tech_id', 'N/A')}")
+        st.write(f"Enterprise ID: {row.get('tech_id', 'N/A')}")
+        employment_status = "New Hire (less than 30 days)" if row.get('is_new_hire') else "Existing Tech"
+        st.write(f"Employment Status: {employment_status}")
+        st.write(f"Truck Number: {row.get('truck_number') or 'N/A'}")
         st.write(f"District: {row.get('district', 'N/A')}")
         st.write(f"State: {row.get('state', 'N/A')}")
         referred_by = row.get('referred_by') or row.get('referredBy') or 'N/A'
