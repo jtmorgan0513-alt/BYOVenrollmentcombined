@@ -28,9 +28,17 @@ class SegnoClient:
             return False
         
         try:
+            # First, get the login page to establish a session
+            self.session.get(
+                f"{self.base_url}/index.php?module=Users&action=Login",
+                timeout=30
+            )
+            
             login_data = {
                 "module": "Users",
                 "action": "Authenticate",
+                "return_module": "Users",
+                "return_action": "Login",
                 "user_name": self.username,
                 "user_password": self.password,
             }
@@ -38,20 +46,39 @@ class SegnoClient:
             response = self.session.post(
                 f"{self.base_url}/index.php",
                 data=login_data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Origin": self.base_url,
+                    "Referer": f"{self.base_url}/index.php?module=Users&action=Login",
+                },
                 timeout=30,
                 allow_redirects=True
             )
             
+            # Debug: print cookies
+            cookies = dict(self.session.cookies)
+            print(f"[Segno] Cookies after login: {list(cookies.keys())}")
+            
+            # Check for successful login indicators
             if response.status_code == 200:
-                if "logout" in response.text.lower() or "home" in response.url.lower():
+                # Check if we're NOT on a login page
+                if "action=Login" not in response.url or "module=Home" in response.url:
                     self.authenticated = True
-                    print("[Segno] Login successful")
+                    print(f"[Segno] Login successful, redirected to: {response.url[:80]}")
                     return True
-                else:
+                # Check page content for login success
+                if "logout" in response.text.lower() or "dashboard" in response.text.lower():
                     self.authenticated = True
-                    print("[Segno] Login response received, assuming authenticated")
+                    print("[Segno] Login successful (found dashboard/logout in page)")
                     return True
+                # If we got PHPSESSID cookie, assume success
+                if "PHPSESSID" in cookies:
+                    self.authenticated = True
+                    print("[Segno] Login response received with session cookie")
+                    return True
+                    
+                print(f"[Segno] Login may have failed, URL: {response.url[:80]}")
+                return False
             
             print(f"[Segno] Login failed with status {response.status_code}")
             return False
