@@ -200,9 +200,9 @@ class SegnoClient:
             
             form_data = {
                 "module": "Sears_Drive_Enrolment",
-                "action": "Save",
                 "record": "",
                 "isDuplicate": "false",
+                "action": "Submit",
                 "return_module": "Sears_Drive_Enrolment",
                 "return_action": "DetailView",
                 "return_id": "",
