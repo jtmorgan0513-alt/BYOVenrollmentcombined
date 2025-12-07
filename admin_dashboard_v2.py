@@ -597,6 +597,19 @@ def render_record_card(record: Dict[str, Any]) -> None:
     sig_color = "#16a34a" if signature_ok else "#ef4444"
     sig_text = "✓ Yes" if signature_ok else "✗ Missing"
 
+    # Segno sync status
+    raw_data = record.get("_raw", {}) or {}
+    segno_stat = raw_data.get("segno_sync_status", "pending")
+    if segno_stat == "synced":
+        segno_color = "#16a34a"
+        segno_text = "✓ Synced"
+    elif segno_stat == "failed":
+        segno_color = "#ef4444"
+        segno_text = "✗ Failed"
+    else:
+        segno_color = "#f59e0b"
+        segno_text = "○ Pending"
+
     # Card Header with gradient
     st.markdown(
         f"""
@@ -638,6 +651,10 @@ def render_record_card(record: Dict[str, Any]) -> None:
             <div class="stat-item">
               <div class="stat-label">Signature</div>
               <div class="stat-value" style="color:{sig_color}">{sig_text}</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Segno</div>
+              <div class="stat-value" style="color:{segno_color}">{segno_text}</div>
             </div>
           </div>
         </div>
@@ -756,8 +773,11 @@ def render_record_card(record: Dict[str, Any]) -> None:
                 st.info("No signed enrollment form available.")
 
     # ---- Actions ----
+    segno_status = raw.get("segno_sync_status", "pending")
+    segno_synced = segno_status == "synced"
+    
     with st.expander("✅ Actions – Approve, notify, and manage enrollment", expanded=False):
-        col1, col2, col3, col4 = st.columns([2, 1.5, 1.5, 1])
+        col1, col2, col3, col4, col5 = st.columns([2, 1.5, 1.5, 1.5, 1])
 
         with col1:
             st.markdown('<div class="approve-btn">', unsafe_allow_html=True)
@@ -770,6 +790,17 @@ def render_record_card(record: Dict[str, Any]) -> None:
             st.markdown("</div>", unsafe_allow_html=True)
 
         with col2:
+            segno_btn_label = "✓ Segno Synced" if segno_synced else "🔄 Sync to Segno"
+            st.markdown('<div class="segno-btn">', unsafe_allow_html=True)
+            sync_segno = st.button(
+                segno_btn_label,
+                key=f"segno_{enrollment_id}",
+                disabled=segno_synced,
+                use_container_width=True,
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col3:
             has_pdf = any(d.get("doc_type") == "signature" for d in docs)
             st.markdown('<div class="pdf-btn">', unsafe_allow_html=True)
             send_pdf = st.button(
@@ -780,7 +811,7 @@ def render_record_card(record: Dict[str, Any]) -> None:
             )
             st.markdown("</div>", unsafe_allow_html=True)
 
-        with col3:
+        with col4:
             st.markdown('<div class="notify-btn">', unsafe_allow_html=True)
             notify = st.button(
                 "📧 Notify",
@@ -789,7 +820,7 @@ def render_record_card(record: Dict[str, Any]) -> None:
             )
             st.markdown("</div>", unsafe_allow_html=True)
 
-        with col4:
+        with col5:
             st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
             delete = st.button(
                 "🗑️ Delete",
@@ -890,6 +921,28 @@ def render_record_card(record: Dict[str, Any]) -> None:
                 st.warning(
                     "Notifications not configured. Adjust in Notification Settings tab."
                 )
+
+        # Handle Sync to Segno
+        if sync_segno and not segno_synced:
+            with st.spinner("Syncing to Segno..."):
+                try:
+                    import segno_client
+                    result = segno_client.sync_enrollment_by_id(enrollment_id)
+                    
+                    if result.get("success"):
+                        database.mark_checklist_task_by_key(
+                            enrollment_id,
+                            "segno_synced",
+                            True,
+                            "System - Segno Sync",
+                        )
+                        clear_enrollment_cache()
+                        st.success("Segno enrollment created successfully!")
+                        st.rerun()
+                    else:
+                        st.error(f"Segno sync failed: {result.get('error', 'Unknown error')}")
+                except Exception as e:
+                    st.error(f"Segno sync error: {str(e)}")
 
         # Handle Delete with session state confirmation
         delete_key = f"pending_delete_{enrollment_id}"

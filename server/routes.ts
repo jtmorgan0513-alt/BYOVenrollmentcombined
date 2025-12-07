@@ -194,6 +194,72 @@ export async function registerRoutes(
     res.redirect(`/enroll/?mode=confirm_docusign&token=${encodeURIComponent(token)}`);
   });
 
+  // Segno sync endpoint - called by admin dashboard to sync enrollment to Segno
+  app.post("/api/segno/sync-enrollment", async (req: Request, res: Response) => {
+    const { enrollment_id } = req.body;
+    
+    if (!enrollment_id) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "enrollment_id is required" 
+      });
+    }
+    
+    try {
+      const { spawn } = await import("child_process");
+      
+      const pythonProcess = spawn("python", [
+        "-c",
+        `
+import json
+import segno_client
+
+result = segno_client.sync_enrollment_by_id(${enrollment_id})
+print(json.dumps(result))
+`
+      ]);
+      
+      let stdout = "";
+      let stderr = "";
+      
+      pythonProcess.stdout.on("data", (data: Buffer) => {
+        stdout += data.toString();
+      });
+      
+      pythonProcess.stderr.on("data", (data: Buffer) => {
+        stderr += data.toString();
+      });
+      
+      pythonProcess.on("close", (code: number) => {
+        if (code !== 0) {
+          console.error(`[Segno API] Python process exited with code ${code}: ${stderr}`);
+          return res.status(500).json({
+            success: false,
+            error: stderr || "Python process failed"
+          });
+        }
+        
+        try {
+          const result = JSON.parse(stdout.trim());
+          res.json(result);
+        } catch (e) {
+          console.error(`[Segno API] Failed to parse Python output: ${stdout}`);
+          res.status(500).json({
+            success: false,
+            error: "Failed to parse response from Segno client"
+          });
+        }
+      });
+      
+    } catch (error: any) {
+      console.error("[Segno API] Error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Internal server error"
+      });
+    }
+  });
+
   // Start the keepalive ping to Streamlit backends
   startStreamlitKeepalive();
 
