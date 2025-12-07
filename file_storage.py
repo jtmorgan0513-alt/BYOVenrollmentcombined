@@ -7,9 +7,9 @@ import os
 import io
 import base64
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
-from typing import Optional, List, Tuple, Union
+from typing import Optional, List, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from PIL import Image
 
@@ -31,7 +31,7 @@ class FileStorageError(Exception):
 def _sign_url(bucket_name: str, object_name: str, method: str, ttl_sec: int = 900) -> str:
     """Sign a URL for object access using the sidecar API."""
     from datetime import timedelta
-    expires_at = datetime.utcnow() + timedelta(seconds=ttl_sec)
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl_sec)
     
     request_body = {
         "bucket_name": bucket_name,
@@ -70,7 +70,7 @@ def _parse_object_path(path: str) -> Tuple[str, str]:
 
 def is_object_storage_path(path: str) -> bool:
     """Check if a path is an Object Storage path."""
-    return path and path.startswith("/objects/")
+    return bool(path and path.startswith("/objects/"))
 
 
 def create_upload_folder(tech_id: str, record_id: str) -> str:
@@ -117,17 +117,20 @@ def _process_single_file(args: Tuple) -> Tuple[int, str]:
                 
                 try:
                     from PIL import ExifTags
-                    for orientation in ExifTags.TAGS.keys():
-                        if ExifTags.TAGS[orientation] == 'Orientation':
+                    orientation_tag = None
+                    for tag_key in ExifTags.TAGS.keys():
+                        if ExifTags.TAGS[tag_key] == 'Orientation':
+                            orientation_tag = tag_key
                             break
-                    exif = img._getexif()
-                    if exif and orientation in exif:
-                        if exif[orientation] == 3:
-                            img = img.rotate(180, expand=True)
-                        elif exif[orientation] == 6:
-                            img = img.rotate(270, expand=True)
-                        elif exif[orientation] == 8:
-                            img = img.rotate(90, expand=True)
+                    if orientation_tag is not None and hasattr(img, '_getexif'):
+                        exif = img._getexif()  # type: ignore
+                        if exif and orientation_tag in exif:
+                            if exif[orientation_tag] == 3:
+                                img = img.rotate(180, expand=True)
+                            elif exif[orientation_tag] == 6:
+                                img = img.rotate(270, expand=True)
+                            elif exif[orientation_tag] == 8:
+                                img = img.rotate(90, expand=True)
                 except Exception:
                     pass
                 
