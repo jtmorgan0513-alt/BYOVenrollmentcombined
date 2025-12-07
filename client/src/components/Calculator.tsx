@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Calculator as CalcIcon, DollarSign, Fuel, Gauge, Search, CheckCircle2, AlertCircle } from "lucide-react";
+import { Search, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { InlineStateSelector } from "./InlineStateSelector";
 
@@ -84,135 +84,131 @@ export function Calculator({ ratePerMile = null, selectedState = null, onStateCh
   const annualNet = weeklyNet * 52;
 
   return (
-    <Card className="w-full border shadow-lg bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <CardHeader className="pb-4 border-b">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <CalcIcon className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle className="text-xl">Earnings Calculator</CardTitle>
-              <CardDescription>
-                {hasRate ? `Rate: $${effectiveRate.toFixed(2)}/mile` : "Select state for rate"}
-              </CardDescription>
-            </div>
+    <Card className="w-full rounded-2xl shadow-xl border-0 bg-white">
+      <CardContent className="p-6 md:p-8">
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Earnings Calculator</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              {hasRate ? `Rate: $${effectiveRate.toFixed(2)}/mile` : "Select state for rate"}
+            </p>
           </div>
-          <div className="text-right">
-            <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider">Potential Annual Earnings</p>
-            <p className="text-3xl font-bold text-primary">
-              {hasRate ? `+$${annualNet.toLocaleString(undefined, {maximumFractionDigits: 0})}` : "—"}
+          <div className="sm:text-right">
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">Potential Annual Earnings</p>
+            <p className="text-3xl md:text-4xl font-bold text-primary">
+              {hasRate ? `$${annualNet.toLocaleString(undefined, {maximumFractionDigits: 0})}` : "—"}
             </p>
           </div>
         </div>
-      </CardHeader>
-      
-      <CardContent className="p-6 space-y-8">
-        {/* State Selector */}
-        {onStateChange && (
-          <div className="pb-4 border-b">
-            <InlineStateSelector 
-              selectedState={selectedState} 
-              onStateChange={onStateChange}
-              showLabel={true}
-            />
-          </div>
-        )}
 
-        {/* Summary Footer */}
-        <div className="space-y-4 pb-6 border-b">
-          <div className="grid grid-cols-2 gap-4 text-sm text-center">
-            <div className="space-y-1">
-              <span className="text-muted-foreground block">Weekly Reimbursement</span>
-              <span className="font-semibold text-lg">
-                {hasRate ? `$${weeklyReimbursement.toFixed(2)}` : "—"}
+        {/* Inputs Section */}
+        <div className="space-y-6">
+          {/* State Selector */}
+          {onStateChange && (
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Your State</Label>
+              <InlineStateSelector 
+                selectedState={selectedState} 
+                onStateChange={onStateChange}
+                showLabel={false}
+              />
+            </div>
+          )}
+
+          {/* Weekly Miles Slider */}
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <Label className="text-sm font-medium text-gray-700">Weekly Miles</Label>
+              <span className="text-lg font-semibold text-gray-900 tabular-nums">
+                {milesPerWeek} <span className="text-sm font-normal text-gray-500">mi</span>
               </span>
             </div>
-            <div className="space-y-1">
-              <span className="text-muted-foreground block">Est. Gas Cost</span>
-              <span className="font-semibold text-lg text-destructive">-${weeklyGasCost.toFixed(2)}</span>
+            <Slider 
+              value={[milesPerWeek]} 
+              onValueChange={(v) => setMilesPerWeek(v[0])} 
+              min={100} 
+              max={1500} 
+              step={50} 
+              className="py-1"
+            />
+          </div>
+
+          {/* MPG and Gas Price - Side by Side */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Vehicle MPG</Label>
+              <Input 
+                type="number" 
+                value={mpg} 
+                onChange={(e) => setMpg(Number(e.target.value))} 
+                className="h-11"
+              />
+            </div>
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Gas Price</Label>
+              <Input 
+                type="number" 
+                value={gasPrice} 
+                onChange={(e) => setGasPrice(Number(e.target.value))} 
+                className="h-11"
+                step="0.01"
+              />
             </div>
           </div>
-          <div className="bg-muted/50 rounded-lg p-4 flex flex-col items-center justify-center text-center">
-            <span className="text-muted-foreground text-sm uppercase tracking-wider font-medium mb-1">Est Net Weekly Payout</span>
-            <span className="font-bold text-foreground text-2xl">
-              {hasRate ? `$${weeklyNet.toFixed(0)}` : "Select state"}
-            </span>
+
+          {/* VIN Lookup */}
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">VIN Lookup (Optional)</Label>
+            <div className="flex gap-2">
+              <Input 
+                placeholder="Enter 17-character VIN" 
+                value={vin} 
+                onChange={(e) => setVin(e.target.value.toUpperCase())} 
+                maxLength={17}
+                className="flex-1 h-11"
+              />
+              <Button 
+                onClick={lookupVIN}
+                disabled={vinLoading}
+                variant="secondary"
+                className="h-11 px-4"
+              >
+                {vinLoading ? "..." : <Search className="h-4 w-4" />}
+              </Button>
+            </div>
+            {vinLookupStatus === "success" && (
+              <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" /> Vehicle found! MPG updated.
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Main Slider */}
-        <div className="space-y-4">
-          <div className="flex justify-between items-end">
-            <Label className="text-base font-medium flex items-center gap-2">
-              <Gauge className="h-4 w-4 text-muted-foreground" />
-              Weekly Miles
-            </Label>
-            <span className="text-2xl font-bold tabular-nums">{milesPerWeek} <span className="text-sm font-normal text-muted-foreground">mi</span></span>
+        {/* Results Section */}
+        <div className="mt-8 bg-gray-50 rounded-xl p-5">
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Weekly Reimbursement</p>
+              <p className="text-lg font-semibold text-gray-900">
+                {hasRate ? `$${weeklyReimbursement.toFixed(2)}` : "—"}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-gray-500 mb-1">Est. Gas Cost</p>
+              <p className="text-lg font-semibold text-red-500/80">
+                -${weeklyGasCost.toFixed(2)}
+              </p>
+            </div>
           </div>
-          <Slider 
-            value={[milesPerWeek]} 
-            onValueChange={(v) => setMilesPerWeek(v[0])} 
-            min={100} 
-            max={1500} 
-            step={50} 
-            className="py-2"
-          />
-        </div>
-
-        {/* Secondary Inputs */}
-        <div className="grid grid-cols-2 gap-6">
-          <div className="space-y-3">
-            <Label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-              <Fuel className="h-4 w-4" />
-              Vehicle MPG
-            </Label>
-            <Input 
-              type="number" 
-              value={mpg} 
-              onChange={(e) => setMpg(Number(e.target.value))} 
-              className=""
-            />
+          <div className="border-t border-gray-200 pt-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <p className="text-sm font-medium text-gray-600">Est. Net Weekly Payout</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {hasRate ? `$${weeklyNet.toFixed(0)}` : "Select state"}
+              </p>
+            </div>
           </div>
-          <div className="space-y-3">
-            <Label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-              <DollarSign className="h-4 w-4" />
-              Gas Price
-            </Label>
-            <Input 
-              type="number" 
-              value={gasPrice} 
-              onChange={(e) => setGasPrice(Number(e.target.value))} 
-              className=""
-              step="0.01"
-            />
-          </div>
-        </div>
-
-        {/* VIN Lookup */}
-        <div className="pt-2">
-          <div className="flex gap-2">
-            <Input 
-              placeholder="Enter VIN to auto-detect MPG (Optional)" 
-              value={vin} 
-              onChange={(e) => setVin(e.target.value.toUpperCase())} 
-              maxLength={17}
-              className="flex-1 text-sm"
-            />
-            <Button 
-              onClick={lookupVIN}
-              disabled={vinLoading}
-              variant="secondary"
-              className="shrink-0"
-            >
-              {vinLoading ? "..." : <Search className="h-4 w-4" />}
-            </Button>
-          </div>
-          {vinLookupStatus === "success" && (
-            <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1">
-              <CheckCircle2 className="h-3 w-3" /> Found vehicle! MPG updated.
-            </p>
-          )}
         </div>
       </CardContent>
     </Card>

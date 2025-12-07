@@ -1,0 +1,112 @@
+You are working on my BYOV landing page repo.
+There is a mileage/earnings calculator component on the landing page – the one that shows things like:
+
+Rate: $0.57/mile
+
+Potential Annual Earnings
+
+Weekly Reimbursement
+
+Est. Gas Cost
+
+Est Net Weekly Payout
+
+Weekly Miles slider
+
+Vehicle MPG, Gas Price inputs
+
+VIN input to auto-detect MPG
+
+Goal: Clean up the visual layout so it feels calm and modern, without changing any of the actual calculations, props, state, or API calls. This is a pure UI/UX refactor.
+
+Find the calculator component and styles
+
+Locate the React/JSX/TSX component that renders this calculator on the landing page.
+
+Identify the CSS/Tailwind/styling used for it.
+
+Keep all functionality exactly the same
+
+Do not change how values are calculated.
+
+Do not rename props, state variables, or functions unless strictly necessary.
+
+Do not remove any existing inputs or outputs.
+
+The slider, VIN lookup, and all current behaviors must continue to work exactly as they do now.
+
+Restructure the layout to be calmer and more minimal (Apple-style)
+
+Use a single clean card with generous padding and rounded corners (e.g. border-radius 16–20px) and a soft shadow.
+
+Remove unnecessary horizontal separators/lines unless they really help readability.
+
+Layout order should be:
+
+Header section (top):
+
+Left: “Earnings Calculator” and the rate text.
+
+Right: “Potential Annual Earnings” with the annual earnings value as the primary focus (large bold number).
+
+Inputs section (middle):
+
+First row: “Your state” dropdown (full width on mobile, half width or inline on desktop).
+
+Second row: “Weekly miles” slider with value clearly shown to the right (e.g. “900 mi”).
+
+Third row: two equal-width fields side by side: “Vehicle MPG” and “Gas price”.
+
+Fourth row: VIN input with search icon/button, full width.
+
+Results section (bottom):
+
+A subtle container or light background area that shows:
+
+Weekly Reimbursement
+
+Est. Gas Cost
+
+Est Net Weekly Payout (make this the main number in this section; use slightly larger font).
+
+Optionally show the annual earnings again here in smaller text, but the main big number for annual earnings stays in the header.
+
+Visual style rules
+
+Use the existing design system where possible (same fonts and primary color), but:
+
+Increase font size and weight for key numbers (weekly net and annual earnings).
+
+Use consistent spacing: 16–24px vertical spacing between groups, 8–12px between labels and fields.
+
+Use a single primary accent color for sliders, highlights, and the annual earnings number; avoid multiple competing colors that make it feel busy.
+
+Make the negative gas cost red but subtle, not screaming.
+
+Ensure alignment is clean: labels left-aligned, values right-aligned where appropriate.
+
+Implementation details
+
+Respect the existing styling approach. If the project uses Tailwind, modify Tailwind classes. If it uses CSS modules or styled-components, update those instead of introducing a new styling system.
+
+Make sure the component is fully responsive:
+
+On mobile: stack everything in a single column and keep it scrollable but compact.
+
+On desktop: use two columns where it makes sense (e.g., header values on the right, inputs/results beneath).
+
+Remove any leftover unused styles or class names related only to the old layout.
+
+Verification
+
+After changes, run the app and confirm:
+
+All inputs work as before.
+
+Slider still updates values.
+
+VIN lookup still works.
+
+All numbers (weekly reimbursement, gas cost, net weekly payout, annual earnings) still update correctly when inputs change.
+
+Finally, show me the updated component code and any CSS/Tailwind changes you made, and briefly summarize the layout changes so I know what you touched.
