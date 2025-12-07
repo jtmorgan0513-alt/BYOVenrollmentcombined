@@ -395,16 +395,19 @@ def decode_vin(vin: str):
     """Decode VIN using NHTSA API."""
     vin = vin.strip().upper()
     if len(vin) < 11:
+        print(f"VIN too short: {len(vin)} characters")
         return {}
 
     try:
         url = f"https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvaluesextended/{vin}?format=json"
-        resp = requests.get(url, timeout=10)
+        print(f"Calling NHTSA API for VIN: {vin}")
+        resp = requests.get(url, timeout=15)
         resp.raise_for_status()
         data = resp.json()
 
         results = data.get("Results", [])
         if not results:
+            print("NHTSA returned no results")
             return {}
 
         result = results[0]
@@ -413,7 +416,10 @@ def decode_vin(vin: str):
         make = result.get("Make") or ""
         model = result.get("Model") or ""
 
+        print(f"NHTSA decoded: Year={year}, Make={make}, Model={model}")
+
         if not (year or make or model):
+            print("No vehicle data found in NHTSA response")
             return {}
 
         return {
@@ -422,7 +428,14 @@ def decode_vin(vin: str):
             "model": model,
         }
 
-    except Exception:
+    except requests.exceptions.Timeout:
+        print("NHTSA API timeout")
+        return {}
+    except requests.exceptions.RequestException as e:
+        print(f"NHTSA API request error: {e}")
+        return {}
+    except Exception as e:
+        print(f"VIN decode error: {e}")
         return {}
 
 
