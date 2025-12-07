@@ -514,10 +514,9 @@ def _format_date(date_str) -> str:
 def _get_notification_settings() -> Dict[str, Any]:
     """Load notification settings from database or return defaults."""
     try:
-        settings = database.get_admin_settings("notification_settings")
+        settings = database.get_notification_settings()
         if settings:
-            return json.loads(settings) if isinstance(settings,
-                                                      str) else settings
+            return settings if isinstance(settings, dict) else json.loads(settings)
     except Exception:
         pass
     return DEFAULT_NOTIFICATION_SETTINGS.copy()
@@ -526,8 +525,7 @@ def _get_notification_settings() -> Dict[str, Any]:
 def _save_notification_settings(settings: Dict[str, Any]) -> bool:
     """Save notification settings to database."""
     try:
-        database.set_admin_settings("notification_settings",
-                                    json.dumps(settings))
+        database.save_notification_settings(settings)
         return True
     except Exception as e:
         st.error(f"Error saving settings: {e}")
@@ -565,6 +563,8 @@ def get_admin_records() -> List[Dict[str, Any]]:
 
     for e in enrollments:
         enrollment_id = e.get("id")
+        if enrollment_id is None:
+            continue
         docs = database.get_documents_for_enrollment(enrollment_id)
 
         signature_docs = [d for d in docs if d.get("doc_type") == "signature"]
@@ -711,7 +711,7 @@ def render_workflow_checklist(enrollment_id: int, raw_data: Dict[str,
     """Render the workflow checklist for an enrollment."""
     # Get checklist items from database
     try:
-        checklist_items = database.get_checklist_tasks(enrollment_id)
+        checklist_items = database.get_checklist_for_enrollment(enrollment_id)
         checklist_dict = {item['task_key']: item for item in checklist_items}
     except Exception:
         checklist_dict = {}
@@ -822,7 +822,7 @@ def render_record_card(record: Dict[str, Any]) -> None:
     st.markdown('<div class="record-card-container">', unsafe_allow_html=True)
 
     # MASTER EXPANDER - Blue Header + Stats as the clickable title
-    with st.expander("", expanded=False, key=f"card_master_{enrollment_id}"):
+    with st.expander("", expanded=False):
 
         # Blue Header HTML (rendered inside expander label area via markdown above it)
         # We'll put the header content here instead
@@ -886,9 +886,7 @@ def render_record_card(record: Dict[str, Any]) -> None:
     )
 
     # Master expander for the 4 sub-sections (collapsed by default)
-    with st.expander("Expand Details",
-                     expanded=False,
-                     key=f"details_{enrollment_id}"):
+    with st.expander("Expand Details", expanded=False):
 
         # Sub-expander 1: Technician & Vehicle Details
         with st.expander("👤 Technician & Vehicle Details", expanded=False):
@@ -1062,7 +1060,7 @@ def render_record_card(record: Dict[str, Any]) -> None:
 
             # Check if already synced
             try:
-                checklist_items = database.get_checklist_tasks(enrollment_id)
+                checklist_items = database.get_checklist_for_enrollment(enrollment_id)
                 checklist_dict = {
                     item['task_key']: item
                     for item in checklist_items
