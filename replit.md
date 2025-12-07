@@ -7,11 +7,18 @@ The BYOV (Bring Your Own Vehicle) Enrollment Automation System is designed to st
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (December 2025)
+- **Segno Integration (segno_client.py):**
+  - New "Sync to Segno" button in Actions expander to create Sears Drive Enrollment records
+  - Segno status indicator in stats bar (Pending/Synced/Failed)
+  - Automated authentication with session management
+  - Maps enrollment fields to Segno form fields (associate, user_id_c, vehicle info, dates, product flags)
+  - New database columns: segno_sync_status, segno_record_id
+  - Requires SEGNO_USERNAME and SEGNO_PASSWORD environment variables
 - **Admin Dashboard UI Rewrite (admin_dashboard_v2.py):**
   - New card-based UI with blue gradient headers for each enrollment
-  - Stats bar showing VIN, Insurance Exp, Registration Exp, Photos count, Signature status
+  - Stats bar showing VIN, Insurance Exp, Registration Exp, Photos count, Signature status, Segno status
   - Document Review expander with tabs for Vehicle/Registration/Insurance/Form
-  - Actions expander with styled buttons (green Approve, blue PDF to HR, charcoal Notify)
+  - Actions expander with styled buttons (Approve, Sync to Segno, PDF to HR, Notify, Delete)
   - Real data wired via `database.get_all_enrollments()` and `get_documents_for_enrollment()`
   - Actions connected to existing `push_to_dashboard_single_request()`, `send_hr_policy_notification()`, `_send_approval_notification()`
 - **Enrollment Wizard Updates:**
@@ -35,7 +42,7 @@ The system comprises a tri-application setup connected via a proxy:
 *   `enrollment_app.py`: Enrollment wizard (port 8000)
 *   `admin_app.py`: Admin dashboard (port 8080)
 *   `dashboard_sync.py`: Shared module for dashboard sync functions (push_to_dashboard, pull_dashboard_data, push_dashboard_update)
-*   `byov_app.py`: DEPRECATED legacy monolithic app (kept for reference only)
+*   `segno_client.py`: Segno API client for syncing enrollments to Sears Drive Enrollment system
 
 **Proxy Integration:** An Express server proxies both Streamlit apps through port 5000 to manage Replit's single-port limitation. Routes `/enroll/*` proxy to port 8000, routes `/admin/*` proxy to port 8080. Both HTTP and WebSocket connections are handled with automatic health checks and keepalive pings.
 
