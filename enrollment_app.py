@@ -46,7 +46,6 @@ import database_pg as database
 from database_pg import get_enrollment_by_id, get_documents_for_enrollment
 from notifications import send_email_notification, send_docusign_request_hr
 import file_storage
-from dashboard_sync import push_to_dashboard_single_request
 
 
 def validate_environment():
