@@ -131,7 +131,7 @@ class SegnoClient:
             try:
                 import json
                 industries = json.loads(industries)
-            except:
+            except Exception:
                 industries = [industries]
         
         industry_map = {
@@ -226,16 +226,16 @@ class SegnoClient:
                 "notes": "",
                 "reffered_by": enrollment.get("refered_by") or enrollment.get("referred_by") or "Tyler Morgan",
                 "mileage_rate": "0.57",
-                "cook": "0",
-                "dish": "0",
-                "mw": "0",
-                "wh": "0",
-                "hvac": "0",
-                "ref": "0",
-                "l": "0",
-                "lg": "0",
-                "pmt": "0",
-                "apt": "0",
+                "cook": industry_flags.get("cook", "0"),
+                "dish": industry_flags.get("dish", "0"),
+                "mw": industry_flags.get("mw", "0"),
+                "wh": industry_flags.get("wh", "0"),
+                "hvac": industry_flags.get("hvac", "0"),
+                "ref": industry_flags.get("ref", "0"),
+                "l": industry_flags.get("l", "0"),
+                "lg": industry_flags.get("lg", "0"),
+                "pmt": industry_flags.get("pmt", "0"),
+                "apt": industry_flags.get("apt", "0"),
             }
             
             print(f"[Segno] Submitting enrollment for {enrollment.get('full_name', 'Unknown')}")
