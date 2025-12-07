@@ -322,7 +322,10 @@ def send_email_notification(record, recipients=None, subject=None, attach_pdf_on
                 content = file_storage.read_file(file_path)
                 if content:
                     filename = os.path.basename(file_path)
-                    b64_content = base64.b64encode(content).decode() if isinstance(content, bytes) else base64.b64encode(content.encode()).decode()
+                    if isinstance(content, (bytes, bytearray, memoryview)):
+                        b64_content = base64.b64encode(bytes(content)).decode()
+                    else:
+                        b64_content = base64.b64encode(content.encode()).decode()
                     mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
                     attachments.append({
                         "content": b64_content,
@@ -697,7 +700,7 @@ def send_docusign_request_hr(record, enrollment_id):
     
     Returns True on success, False otherwise.
     """
-    import database
+    import database_pg as database
     
     email_config = st.secrets.get("email", {})
     sg_key = email_config.get("sendgrid_api_key") or os.getenv("SENDGRID_API_KEY")
@@ -707,11 +710,7 @@ def send_docusign_request_hr(record, enrollment_id):
         st.warning("SendGrid not configured. Cannot send DocuSign request.")
         return False
     
-    hr_email = email_config.get("hr_email")
-    if not hr_email:
-        config = database.get_email_config()
-        hr_email = config.get('hr_recipient') if config else None
-    
+    hr_email = email_config.get("hr_email") or os.getenv("HR_EMAIL")
     if not hr_email:
         st.warning("HR email not configured. Please set up HR email in Admin Settings.")
         return False
@@ -939,7 +938,7 @@ def send_custom_notification(record, recipients, subject, selected_fields, selec
     
     Returns True on success, dict with 'error' key on failure.
     """
-    import database
+    import database_pg as database
     
     email_config = st.secrets.get("email", {})
     
