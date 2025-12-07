@@ -25,13 +25,17 @@ from notifications import send_hr_policy_notification
 # Default notification settings structure
 DEFAULT_NOTIFICATION_SETTINGS = {
     "approval": {
-        "enabled": True,
-        "recipients": "",
-        "cc": "",
-        "subject": "BYOV Enrollment Approved - {tech_name}",
+        "enabled":
+        True,
+        "recipients":
+        "",
+        "cc":
+        "",
+        "subject":
+        "BYOV Enrollment Approved - {tech_name}",
         "include_fields": [
-            "full_name", "tech_id", "district", "state",
-            "year", "make", "model", "vin"
+            "full_name", "tech_id", "district", "state", "year", "make",
+            "model", "vin"
         ]
     },
     "hr_pdf": {
@@ -416,7 +420,8 @@ def _get_notification_settings() -> Dict[str, Any]:
     try:
         settings = database.get_admin_settings("notification_settings")
         if settings:
-            return json.loads(settings) if isinstance(settings, str) else settings
+            return json.loads(settings) if isinstance(settings,
+                                                      str) else settings
     except Exception:
         pass
     return DEFAULT_NOTIFICATION_SETTINGS.copy()
@@ -432,25 +437,28 @@ def _save_notification_settings(settings: Dict[str, Any]) -> bool:
         return False
 
 
-def _send_approval_notification(record: Dict[str, Any], enrollment_id: int) -> Optional[Dict[str, Any]]:
+def _send_approval_notification(
+        record: Dict[str,
+                     Any], enrollment_id: int) -> Optional[Dict[str, Any]]:
     """Send approval notification email."""
     settings = _get_notification_settings()
     approval_settings = settings.get("approval", {})
-    
+
     if not approval_settings.get("enabled"):
         return {"error": "Approval notifications are disabled"}
-    
+
     recipients = approval_settings.get("recipients", "")
     if not recipients:
         # Fall back to technician email
         recipients = record.get("email", "")
-    
+
     if not recipients:
         return {"error": "No recipient email configured"}
-    
+
     # Build email content based on included fields
-    _ = approval_settings.get("include_fields", [])  # Reserved for future email customization
-    
+    _ = approval_settings.get("include_fields",
+                              [])  # Reserved for future email customization
+
     return {"success": True}
 
 
@@ -473,35 +481,50 @@ def get_admin_records() -> List[Dict[str, Any]]:
                 signature_exists = True
                 break
 
-        photos_count = sum(
-            1 for d in docs if d.get("doc_type") in ("vehicle", "registration", "insurance")
-        )
+        photos_count = sum(1 for d in docs
+                           if d.get("doc_type") in ("vehicle", "registration",
+                                                    "insurance"))
 
         vin = e.get("vin", "") or ""
         vin_tail = vin[-6:] if vin and len(vin) >= 6 else vin or "-"
 
-        vehicle = f"{e.get('year', '')} {e.get('make', '')} {e.get('model', '')}".strip()
-
-        records.append(
-            {
-                "id": enrollment_id,
-                "tech_name": e.get("full_name", "Unknown"),
-                "vehicle": vehicle or "N/A",
-                "tech_id": e.get("tech_id", ""),
-                "district": e.get("district", ""),
-                "state": e.get("state", ""),
-                "status": "validated" if e.get("approved") == 1 else "in_review",
-                "submitted_date": _format_date(e.get("submission_date")),
-                "vin": vin or "-",
-                "vin_tail": vin_tail,
-                "insurance_exp": _format_date(e.get("insurance_exp")),
-                "registration_exp": _format_date(e.get("registration_exp")),
-                "photos_count": photos_count,
-                "signature": signature_exists,
-                "_raw": e,
-                "_docs": docs,
-            }
+        vehicle = f"{e.get('year', '')} {e.get('make', '')} {e.get('model', '')}".strip(
         )
+
+        records.append({
+            "id":
+            enrollment_id,
+            "tech_name":
+            e.get("full_name", "Unknown"),
+            "vehicle":
+            vehicle or "N/A",
+            "tech_id":
+            e.get("tech_id", ""),
+            "district":
+            e.get("district", ""),
+            "state":
+            e.get("state", ""),
+            "status":
+            "validated" if e.get("approved") == 1 else "in_review",
+            "submitted_date":
+            _format_date(e.get("submission_date")),
+            "vin":
+            vin or "-",
+            "vin_tail":
+            vin_tail,
+            "insurance_exp":
+            _format_date(e.get("insurance_exp")),
+            "registration_exp":
+            _format_date(e.get("registration_exp")),
+            "photos_count":
+            photos_count,
+            "signature":
+            signature_exists,
+            "_raw":
+            e,
+            "_docs":
+            docs,
+        })
 
     return records
 
@@ -513,9 +536,9 @@ def render_header(pending_count: int) -> None:
     if os.path.exists(logo_path):
         with open(logo_path, "rb") as f:
             logo_b64 = base64.b64encode(f.read()).decode("utf-8")
-    
+
     logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="height: 40px; margin-right: 12px;" alt="Sears Logo" />' if logo_b64 else ""
-    
+
     st.markdown(
         f"""
         <div class="site-header">
@@ -532,7 +555,8 @@ def render_header(pending_count: int) -> None:
     )
 
 
-def _get_docs_for_type(docs: List[Dict[str, Any]], doc_type: str) -> List[Dict[str, Any]]:
+def _get_docs_for_type(docs: List[Dict[str, Any]],
+                       doc_type: str) -> List[Dict[str, Any]]:
     return [d for d in docs if d.get("doc_type") == doc_type]
 
 
@@ -575,7 +599,7 @@ def delete_enrollment(enrollment_id: int) -> bool:
                     file_storage.delete_file(path)
                 except Exception:
                     pass  # Continue even if file deletion fails
-        
+
         # Delete from database
         database.delete_enrollment(enrollment_id)
         clear_enrollment_cache()
@@ -591,7 +615,7 @@ def render_record_card(record: Dict[str, Any]) -> None:
     if enrollment_id is None:
         st.error("Invalid enrollment record - missing ID")
         return
-    
+
     status = record.get("status", "in_review")
     is_validated = status == "validated"
 
@@ -673,13 +697,13 @@ def render_record_card(record: Dict[str, Any]) -> None:
     # ---- Technician & Vehicle Details ----
     with st.expander("👤 Technician & Vehicle Details", expanded=True):
         col1, col2, col3 = st.columns(3)
-        
+
         with col1:
             st.markdown("**Technician Info**")
             st.write(f"**Name:** {raw.get('full_name', '-')}")
             st.write(f"**Tech ID:** {raw.get('tech_id', '-')}")
             st.write(f"**Referred By:** {raw.get('referred_by', '-')}")
-        
+
         with col2:
             st.markdown("**Vehicle Info**")
             st.write(f"**Year:** {raw.get('year', '-')}")
@@ -687,18 +711,27 @@ def render_record_card(record: Dict[str, Any]) -> None:
             st.write(f"**Model:** {raw.get('model', '-')}")
             st.write(f"**VIN:** {raw.get('vin', '-')}")
             st.write(f"**Industry:** {raw.get('industry', '-')}")
-        
+
         with col3:
             st.markdown("**Compliance**")
             st.write(f"**District:** {raw.get('district', '-')}")
             st.write(f"**State:** {raw.get('state', '-')}")
-            st.write(f"**Insurance Exp:** {_format_date(raw.get('insurance_exp'))}")
-            st.write(f"**Registration Exp:** {_format_date(raw.get('registration_exp'))}")
-            st.write(f"**Submitted:** {_format_date(raw.get('submission_date'))}")
+            st.write(
+                f"**Insurance Exp:** {_format_date(raw.get('insurance_exp'))}")
+            st.write(
+                f"**Registration Exp:** {_format_date(raw.get('registration_exp'))}"
+            )
+            st.write(
+                f"**Submitted:** {_format_date(raw.get('submission_date'))}")
 
     # ---- Document Review with Tabs ----
-    with st.expander("📁 Document Review – Photos, registration, insurance, signed form", expanded=False):
-        tabs = st.tabs(["🚗 Vehicle Photos", "📋 Registration", "🛡️ Insurance", "📄 Signed Form"])
+    with st.expander(
+            "📁 Document Review – Photos, registration, insurance, signed form",
+            expanded=False):
+        tabs = st.tabs([
+            "🚗 Vehicle Photos", "📋 Registration", "🛡️ Insurance",
+            "📄 Signed Form"
+        ])
 
         vehicle_docs = _get_docs_for_type(docs, "vehicle")
         reg_docs = _get_docs_for_type(docs, "registration")
@@ -785,14 +818,16 @@ def render_record_card(record: Dict[str, Any]) -> None:
     # ---- Actions ----
     segno_status = raw.get("segno_sync_status", "pending")
     segno_synced = segno_status == "synced"
-    
-    with st.expander("✅ Actions – Approve, notify, and manage enrollment", expanded=False):
+
+    with st.expander("✅ Actions – Approve, notify, and manage enrollment",
+                     expanded=False):
         col1, col2, col3, col4, col5 = st.columns([2, 1.5, 1.5, 1.5, 1])
 
         with col1:
             st.markdown('<div class="approve-btn">', unsafe_allow_html=True)
             approve = st.button(
-                "✅ Approve & Sync" if not is_validated else "✓ Already Approved",
+                "✅ Approve & Sync"
+                if not is_validated else "✓ Already Approved",
                 key=f"approve_{enrollment_id}",
                 disabled=is_validated,
                 use_container_width=True,
@@ -851,12 +886,14 @@ def render_record_card(record: Dict[str, Any]) -> None:
 
         # Handle Approve
         if approve and not is_validated:
-            result = push_to_dashboard_single_request(raw, enrollment_id=enrollment_id)
+            result = push_to_dashboard_single_request(
+                raw, enrollment_id=enrollment_id)
 
             status_code = result.get("status_code", 0)
             if result.get("error"):
                 st.error(f"Error: {result.get('error')}")
-            elif status_code in (200, 201) or (200 <= status_code < 300 and status_code != 207):
+            elif status_code in (200, 201) or (200 <= status_code < 300
+                                               and status_code != 207):
                 try:
                     database.approve_enrollment(enrollment_id)
                     database.mark_checklist_task_by_key(
@@ -887,22 +924,23 @@ def render_record_card(record: Dict[str, Any]) -> None:
                     clear_enrollment_cache()
                 except Exception:
                     pass
-                st.warning("Approved with warnings (some photos may have failed)")
+                st.warning(
+                    "Approved with warnings (some photos may have failed)")
                 st.rerun()
             else:
                 st.error(f"Dashboard error: status {status_code}")
 
         # Handle PDF to HR
         if send_pdf:
-            sig_doc = next((d for d in docs if d.get("doc_type") == "signature"), None)
+            sig_doc = next(
+                (d for d in docs if d.get("doc_type") == "signature"), None)
             if sig_doc:
                 path = sig_doc.get("file_path")
                 file_bytes = _read_file_safe(path)
                 if file_bytes:
                     settings = _get_notification_settings()
                     hr_email = settings.get("hr_pdf", {}).get(
-                        "recipients", "tyler.morgan@transformco.com"
-                    )
+                        "recipients", "tyler.morgan@transformco.com")
                     result = send_hr_policy_notification(raw, path, hr_email)
                     if result.get("success"):
                         database.mark_checklist_task_by_key(
@@ -914,7 +952,8 @@ def render_record_card(record: Dict[str, Any]) -> None:
                         st.success(f"Signed policy form sent to {hr_email}!")
                         st.rerun()
                     else:
-                        st.error(f"Error: {result.get('error', 'Unknown error')}")
+                        st.error(
+                            f"Error: {result.get('error', 'Unknown error')}")
                 else:
                     st.warning("PDF file not found")
             else:
@@ -938,7 +977,7 @@ def render_record_card(record: Dict[str, Any]) -> None:
                 try:
                     import segno_client
                     result = segno_client.sync_enrollment_by_id(enrollment_id)
-                    
+
                     if result.get("success"):
                         database.mark_checklist_task_by_key(
                             enrollment_id,
@@ -950,21 +989,27 @@ def render_record_card(record: Dict[str, Any]) -> None:
                         st.success("Segno enrollment created successfully!")
                         st.rerun()
                     else:
-                        st.error(f"Segno sync failed: {result.get('error', 'Unknown error')}")
+                        st.error(
+                            f"Segno sync failed: {result.get('error', 'Unknown error')}"
+                        )
                 except Exception as e:
                     st.error(f"Segno sync error: {str(e)}")
 
         # Handle Delete with session state confirmation
         delete_key = f"pending_delete_{enrollment_id}"
-        
+
         if delete:
             st.session_state[delete_key] = True
-        
+
         if st.session_state.get(delete_key, False):
-            st.warning("⚠️ Are you sure you want to delete this enrollment? This cannot be undone.")
+            st.warning(
+                "⚠️ Are you sure you want to delete this enrollment? This cannot be undone."
+            )
             col_confirm, col_cancel = st.columns(2)
             with col_confirm:
-                if st.button("Yes, Delete", key=f"confirm_delete_{enrollment_id}", type="primary"):
+                if st.button("Yes, Delete",
+                             key=f"confirm_delete_{enrollment_id}",
+                             type="primary"):
                     if delete_enrollment(enrollment_id):
                         st.session_state[delete_key] = False
                         st.success("Enrollment deleted successfully!")
@@ -978,152 +1023,143 @@ def render_record_card(record: Dict[str, Any]) -> None:
 def render_notification_settings_tab() -> None:
     """Render the full notification settings configuration UI."""
     st.markdown("## 🔔 Notification Settings")
-    st.markdown("Configure email notifications for different enrollment events.")
-    
+    st.markdown(
+        "Configure email notifications for different enrollment events.")
+
     settings = _get_notification_settings()
-    
+
     # Approval Notifications
     st.markdown("---")
     st.markdown("### ✅ Approval Notifications")
-    st.markdown("Sent when an enrollment is approved and synced to the dashboard.")
-    
+    st.markdown(
+        "Sent when an enrollment is approved and synced to the dashboard.")
+
     approval = settings.get("approval", {})
-    
+
     col1, col2 = st.columns(2)
     with col1:
-        approval_enabled = st.toggle(
-            "Enable Approval Notifications",
-            value=approval.get("enabled", True),
-            key="approval_enabled"
-        )
-    
+        approval_enabled = st.toggle("Enable Approval Notifications",
+                                     value=approval.get("enabled", True),
+                                     key="approval_enabled")
+
     with col2:
         approval_recipients = st.text_input(
             "Recipients (comma-separated)",
             value=approval.get("recipients", ""),
             placeholder="tech@email.com, manager@email.com",
-            key="approval_recipients"
-        )
-    
-    approval_cc = st.text_input(
-        "CC (comma-separated)",
-        value=approval.get("cc", ""),
-        placeholder="supervisor@email.com",
-        key="approval_cc"
-    )
-    
+            key="approval_recipients")
+
+    approval_cc = st.text_input("CC (comma-separated)",
+                                value=approval.get("cc", ""),
+                                placeholder="supervisor@email.com",
+                                key="approval_cc")
+
     approval_subject = st.text_input(
         "Subject Line",
-        value=approval.get("subject", "BYOV Enrollment Approved - {tech_name}"),
+        value=approval.get("subject",
+                           "BYOV Enrollment Approved - {tech_name}"),
         help="Use {tech_name}, {tech_id}, etc. as placeholders",
-        key="approval_subject"
-    )
-    
+        key="approval_subject")
+
     st.markdown("**Fields to include in email:**")
     approval_fields = approval.get("include_fields", [])
     cols = st.columns(4)
     new_approval_fields = []
     for idx, (field_key, field_label) in enumerate(ENROLLMENT_FIELDS):
         with cols[idx % 4]:
-            if st.checkbox(field_label, value=field_key in approval_fields, key=f"approval_field_{field_key}"):
+            if st.checkbox(field_label,
+                           value=field_key in approval_fields,
+                           key=f"approval_field_{field_key}"):
                 new_approval_fields.append(field_key)
-    
+
     # HR PDF Notifications
     st.markdown("---")
     st.markdown("### 📄 HR PDF Notifications")
     st.markdown("Sent when a signed policy form is forwarded to HR.")
-    
+
     hr_pdf = settings.get("hr_pdf", {})
-    
+
     col1, col2 = st.columns(2)
     with col1:
-        hr_enabled = st.toggle(
-            "Enable HR PDF Notifications",
-            value=hr_pdf.get("enabled", True),
-            key="hr_enabled"
-        )
-    
+        hr_enabled = st.toggle("Enable HR PDF Notifications",
+                               value=hr_pdf.get("enabled", True),
+                               key="hr_enabled")
+
     with col2:
-        hr_recipients = st.text_input(
-            "HR Recipients (comma-separated)",
-            value=hr_pdf.get("recipients", "tyler.morgan@transformco.com"),
-            key="hr_recipients"
-        )
-    
-    hr_subject = st.text_input(
-        "Subject Line",
-        value=hr_pdf.get("subject", "BYOV Signed Policy Form - {tech_name}"),
-        key="hr_subject"
-    )
-    
+        hr_recipients = st.text_input("HR Recipients (comma-separated)",
+                                      value=hr_pdf.get(
+                                          "recipients",
+                                          "tyler.morgan@transformco.com"),
+                                      key="hr_recipients")
+
+    hr_subject = st.text_input("Subject Line",
+                               value=hr_pdf.get(
+                                   "subject",
+                                   "BYOV Signed Policy Form - {tech_name}"),
+                               key="hr_subject")
+
     # Reminder Notifications
     st.markdown("---")
     st.markdown("### ⏰ Reminder Notifications")
     st.markdown("Sent to technicians who have incomplete enrollments.")
-    
+
     reminder = settings.get("reminder", {})
-    
+
     col1, col2 = st.columns(2)
     with col1:
-        reminder_enabled = st.toggle(
-            "Enable Reminder Notifications",
-            value=reminder.get("enabled", False),
-            key="reminder_enabled"
-        )
-    
+        reminder_enabled = st.toggle("Enable Reminder Notifications",
+                                     value=reminder.get("enabled", False),
+                                     key="reminder_enabled")
+
     with col2:
         reminder_recipients = st.text_input(
             "Default Recipients",
             value=reminder.get("recipients", ""),
             placeholder="Leave blank to use technician's email",
-            key="reminder_recipients"
-        )
-    
+            key="reminder_recipients")
+
     reminder_subject = st.text_input(
         "Subject Line",
-        value=reminder.get("subject", "BYOV Enrollment Reminder - Action Required"),
-        key="reminder_subject"
-    )
-    
+        value=reminder.get("subject",
+                           "BYOV Enrollment Reminder - Action Required"),
+        key="reminder_subject")
+
     # Rejection Notifications
     st.markdown("---")
     st.markdown("### ❌ Rejection/Issue Notifications")
     st.markdown("Sent when there's an issue with an enrollment.")
-    
+
     rejection = settings.get("rejection", {})
-    
+
     col1, col2 = st.columns(2)
     with col1:
-        rejection_enabled = st.toggle(
-            "Enable Rejection Notifications",
-            value=rejection.get("enabled", False),
-            key="rejection_enabled"
-        )
-    
+        rejection_enabled = st.toggle("Enable Rejection Notifications",
+                                      value=rejection.get("enabled", False),
+                                      key="rejection_enabled")
+
     with col2:
         rejection_recipients = st.text_input(
             "Recipients",
             value=rejection.get("recipients", ""),
             placeholder="Leave blank to use technician's email",
-            key="rejection_recipients"
-        )
-    
+            key="rejection_recipients")
+
     rejection_subject = st.text_input(
         "Subject Line",
         value=rejection.get("subject", "BYOV Enrollment Issue - {tech_name}"),
-        key="rejection_subject"
-    )
-    
+        key="rejection_subject")
+
     rejection_message = st.text_area(
         "Custom Message Template",
         value=rejection.get("custom_message", ""),
         placeholder="Enter a custom message to include in rejection emails...",
-        key="rejection_message"
-    )
-    
+        key="rejection_message")
+
     # Save Button
     st.markdown("---")
-    if st.button("💾 Save Notification Settings", type="primary", use_container_width=True):
+    if st.button("💾 Save Notification Settings",
+                 type="primary",
+                 use_container_width=True):
         new_settings = {
             "approval": {
                 "enabled": approval_enabled,
@@ -1155,7 +1191,7 @@ def render_notification_settings_tab() -> None:
                 "custom_message": rejection_message
             }
         }
-        
+
         if _save_notification_settings(new_settings):
             st.success("✅ Notification settings saved successfully!")
             st.rerun()
@@ -1172,7 +1208,8 @@ def main() -> None:
     render_header(pending_count)
 
     # Top-level tabs
-    tab_enroll, tab_settings = st.tabs(["📋 Enrollments", "🔔 Notification Settings"])
+    tab_enroll, tab_settings = st.tabs(
+        ["📋 Enrollments", "🔔 Notification Settings"])
 
     with tab_enroll:
         if not records:
@@ -1185,7 +1222,3 @@ def main() -> None:
 
     with tab_settings:
         render_notification_settings_tab()
-
-
-if __name__ == "__main__":
-    main()
