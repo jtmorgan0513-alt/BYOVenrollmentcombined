@@ -463,12 +463,9 @@ def _format_date(date_str) -> str:
 def _get_notification_settings() -> Dict[str, Any]:
     """Load notification settings from database or return defaults."""
     try:
-        # Check if function exists
-        if hasattr(database, 'get_admin_settings'):
-            settings = database.get_admin_settings("notification_settings")
-            if settings:
-                return json.loads(settings) if isinstance(settings,
-                                                          str) else settings
+        settings = database.get_notification_settings()
+        if settings:
+            return settings if isinstance(settings, dict) else json.loads(settings)
     except Exception:
         pass
     return DEFAULT_NOTIFICATION_SETTINGS.copy()
@@ -477,16 +474,8 @@ def _get_notification_settings() -> Dict[str, Any]:
 def _save_notification_settings(settings: Dict[str, Any]) -> bool:
     """Save notification settings to database."""
     try:
-        # Check if function exists
-        if hasattr(database, 'set_admin_settings'):
-            database.set_admin_settings("notification_settings",
-                                        json.dumps(settings))
-            return True
-        else:
-            st.warning(
-                "Database function 'set_admin_settings' not available. Settings not saved."
-            )
-            return False
+        database.save_notification_settings(settings)
+        return True
     except Exception as e:
         st.error(f"Error saving settings: {e}")
         return False
@@ -523,6 +512,8 @@ def get_admin_records() -> List[Dict[str, Any]]:
 
     for e in enrollments:
         enrollment_id = e.get("id")
+        if enrollment_id is None:
+            continue
         docs = database.get_documents_for_enrollment(enrollment_id)
 
         signature_docs = [d for d in docs if d.get("doc_type") == "signature"]
@@ -670,12 +661,11 @@ def render_workflow_checklist(enrollment_id: int, raw_data: Dict[str,
     # Get checklist items from database
     checklist_dict: Dict[str, Any] = {}
     try:
-        if hasattr(database, 'get_checklist_tasks'):
-            checklist_items = database.get_checklist_tasks(enrollment_id)
-            checklist_dict = {
-                item['task_key']: item
-                for item in checklist_items
-            }
+        checklist_items = database.get_checklist_for_enrollment(enrollment_id)
+        checklist_dict = {
+            item['task_key']: item
+            for item in checklist_items
+        }
     except Exception:
         pass
 
@@ -814,7 +804,10 @@ def render_record_card(record: Dict[str, Any]) -> None:
     """Render a single record card with nested expander structure."""
     status = record.get("status", "in_review")
     is_validated = status == "validated"
-    enrollment_id = record.get("id")
+    enrollment_id_raw = record.get("id")
+    if enrollment_id_raw is None:
+        return
+    enrollment_id: int = int(enrollment_id_raw)
 
     status_label = "✓ Validated" if is_validated else "⚠ In Review"
     status_class = "validated" if is_validated else "review"
@@ -877,9 +870,7 @@ def render_record_card(record: Dict[str, Any]) -> None:
     )
 
     # Master expander for the 4 sub-sections (collapsed by default)
-    with st.expander("Expand Details",
-                     expanded=False,
-                     key=f"details_{enrollment_id}"):
+    with st.expander("Expand Details", expanded=False):
 
         # Sub-expander 1: Technician & Vehicle Details
         with st.expander("👤 Technician & Vehicle Details", expanded=False):
@@ -992,19 +983,22 @@ def render_record_card(record: Dict[str, Any]) -> None:
             with tabs[3]:
                 if sig_docs:
                     path = sig_docs[0].get("file_path")
-                    file_bytes = _read_file_safe(path)
-                    if file_bytes:
-                        _render_pdf_preview(file_bytes)
-                        st.download_button(
-                            label="⬇️ Download Signed Form",
-                            data=file_bytes,
-                            file_name=os.path.basename(
-                                path or "signed_enrollment.pdf"),
-                            mime="application/pdf",
-                            key=f"dl_pdf_{enrollment_id}",
-                        )
+                    if not path:
+                        st.info("Signed form file path not found.")
                     else:
-                        st.info("Signed form file not found.")
+                        file_bytes = _read_file_safe(path)
+                        if file_bytes:
+                            _render_pdf_preview(file_bytes)
+                            st.download_button(
+                                label="⬇️ Download Signed Form",
+                                data=file_bytes,
+                                file_name=os.path.basename(
+                                    path or "signed_enrollment.pdf"),
+                                mime="application/pdf",
+                                key=f"dl_pdf_{enrollment_id}",
+                            )
+                        else:
+                            st.info("Signed form file not found.")
                 else:
                     st.info("No signed enrollment form available.")
 
@@ -1053,9 +1047,9 @@ def render_record_card(record: Dict[str, Any]) -> None:
 
             # Check if already synced
             segno_synced = False
-            try:
-                if hasattr(database, 'get_checklist_tasks'):
-                    checklist_items = database.get_checklist_tasks(
+            if enrollment_id is not None:
+                try:
+                    checklist_items = database.get_checklist_for_enrollment(
                         enrollment_id)
                     checklist_dict = {
                         item['task_key']: item
@@ -1063,8 +1057,8 @@ def render_record_card(record: Dict[str, Any]) -> None:
                     }
                     segno_synced = checklist_dict.get('segno_synced', {}).get(
                         'is_completed', False)
-            except Exception:
-                pass
+                except Exception:
+                    pass
 
             col_segno, col_spacer = st.columns([1, 1])
             with col_segno:
