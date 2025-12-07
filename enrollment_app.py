@@ -604,6 +604,9 @@ def wizard_step_2():
                     st.session_state.wizard_data['year'] = decoded.get('year', '')
                     st.session_state.wizard_data['make'] = decoded.get('make', '')
                     st.session_state.wizard_data['model'] = decoded.get('model', '')
+                    st.session_state.wiz_year = decoded.get('year', '')
+                    st.session_state.wiz_make = decoded.get('make', '')
+                    st.session_state.wiz_model = decoded.get('model', '')
                     st.success(f"Decoded: {decoded.get('year', '?')} {decoded.get('make', '?')} {decoded.get('model', '?')}")
                     st.rerun()
                 else:
