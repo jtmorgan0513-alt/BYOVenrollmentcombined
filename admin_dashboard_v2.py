@@ -425,7 +425,7 @@ def _get_notification_settings() -> Dict[str, Any]:
 def _save_notification_settings(settings: Dict[str, Any]) -> bool:
     """Save notification settings to database."""
     try:
-        database.set_admin_settings("notification_settings", json.dumps(settings))
+        database.save_admin_settings("notification_settings", settings)
         return True
     except Exception as e:
         st.error(f"Error saving settings: {e}")
