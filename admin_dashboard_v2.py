@@ -461,6 +461,8 @@ def get_admin_records() -> List[Dict[str, Any]]:
 
     for e in enrollments:
         enrollment_id = e.get("id")
+        if enrollment_id is None:
+            continue
         docs = database.get_documents_for_enrollment(enrollment_id)
 
         signature_docs = [d for d in docs if d.get("doc_type") == "signature"]
