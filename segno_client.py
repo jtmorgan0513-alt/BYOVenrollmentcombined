@@ -240,53 +240,9 @@ class SegnoClient:
             
             print(f"[Segno] Submitting enrollment for {enrollment.get('full_name', 'Unknown')}")
             
-            # Step 1: Visit the Home page first
-            home_url = f"{self.base_url}/index.php?module=Home&action=index"
-            home_response = self.session.get(home_url, timeout=30)
-            print(f"[Segno] Home response: {home_response.status_code}, URL: {home_response.url[:80]}")
-            
-            # Check if redirected to login
-            if "action=Login" in home_response.url:
-                print("[Segno] Home page redirected to login - session invalid")
-                self.authenticated = False
-                if retry_count < 1 and self.login():
-                    return self.submit_enrollment(enrollment, retry_count + 1)
-                return {
-                    "success": False,
-                    "status_code": 401,
-                    "error": "Session expired on home page",
-                    "segno_record_id": None
-                }
-            
-            # Step 2: Visit the BYOV module list page
-            list_url = f"{self.base_url}/index.php?module=Sears_Drive_Enrolment&action=index&parentTab=%F0%9F%9A%99%20BYOV"
-            list_response = self.session.get(
-                list_url, 
-                timeout=30,
-                headers={"Referer": home_url}
-            )
-            print(f"[Segno] Module list response: {list_response.status_code}, URL: {list_response.url[:80]}")
-            
-            # Check if list page redirected to login
-            if "action=Login" in list_response.url:
-                print("[Segno] List page redirected to login - session invalid")
-                self.authenticated = False
-                if retry_count < 1 and self.login():
-                    return self.submit_enrollment(enrollment, retry_count + 1)
-                return {
-                    "success": False,
-                    "status_code": 401,
-                    "error": "Session expired on module page",
-                    "segno_record_id": None
-                }
-            
-            # Step 3: Click "Create" to go to the EditView page
+            # Go directly to the EditView page (create new enrollment form)
             edit_url = f"{self.base_url}/index.php?module=Sears_Drive_Enrolment&action=EditView&return_module=Sears_Drive_Enrolment&return_action=DetailView"
-            edit_response = self.session.get(
-                edit_url, 
-                timeout=30,
-                headers={"Referer": list_url}
-            )
+            edit_response = self.session.get(edit_url, timeout=30)
             print(f"[Segno] EditView response: {edit_response.status_code}, URL: {edit_response.url[:80]}")
             
             # Check if EditView redirected to login
@@ -331,7 +287,7 @@ class SegnoClient:
                 form_data["action"] = "Save"
                 
                 # Re-visit EditView before Save attempt
-                self.session.get(edit_url, timeout=30, headers={"Referer": list_url})
+                self.session.get(edit_url, timeout=30)
                 
                 response = self.session.post(
                     f"{self.base_url}/index.php",
