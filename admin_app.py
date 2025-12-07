@@ -19,7 +19,7 @@ import os
 import time
 import logging
 
-import database
+import database_pg as database
 from admin_dashboard_v2 import main as render_new_admin_dashboard
 from dashboard_sync import push_to_dashboard_single_request, pull_dashboard_data, push_dashboard_update
 
