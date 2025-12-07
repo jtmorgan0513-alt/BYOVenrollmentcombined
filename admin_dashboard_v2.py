@@ -587,9 +587,13 @@ def delete_enrollment(enrollment_id: int) -> bool:
 
 def render_record_card(record: Dict[str, Any]) -> None:
     """Render a single record card with all data, photos, and actions."""
+    enrollment_id = record.get("id")
+    if enrollment_id is None:
+        st.error("Invalid enrollment record - missing ID")
+        return
+    
     status = record.get("status", "in_review")
     is_validated = status == "validated"
-    enrollment_id = record.get("id")
 
     status_label = "✓ Validated" if is_validated else "⚠ In Review"
     status_class = "validated" if is_validated else "review"
