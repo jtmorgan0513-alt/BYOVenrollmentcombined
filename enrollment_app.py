@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-import os
+import os  # noqa: E402 - imports after st.set_page_config required by Streamlit
 import re
 import base64
 from datetime import date, datetime
