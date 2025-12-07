@@ -839,6 +839,38 @@ def save_checklist_task_recipients(recipients: Dict[str, str]) -> bool:
     return True
 
 
+def get_admin_settings(setting_key: str) -> Optional[Dict[str, Any]]:
+    """Get admin settings by key from app_settings table."""
+    with get_cursor() as cursor:
+        cursor.execute(
+            "SELECT setting_value FROM app_settings WHERE setting_key = %s",
+            (setting_key,)
+        )
+        row = cursor.fetchone()
+        if row:
+            value = row.get('setting_value') if isinstance(row, dict) else row[0]
+            if isinstance(value, str):
+                return json.loads(value)
+            return value
+    return None
+
+
+def save_admin_settings(setting_key: str, settings: Dict[str, Any]) -> bool:
+    """Save admin settings by key to app_settings table."""
+    with get_cursor() as cursor:
+        cursor.execute("""
+            INSERT INTO app_settings (setting_key, setting_value, updated_at)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (setting_key) 
+            DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = EXCLUDED.updated_at
+        """, (
+            setting_key,
+            json.dumps(settings),
+            datetime.now()
+        ))
+    return True
+
+
 def init_docusign_tokens_table():
     """Initialize the docusign_tokens table for California signature confirmations."""
     with get_cursor(dict_cursor=False) as cursor:
