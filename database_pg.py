@@ -266,7 +266,7 @@ def insert_enrollment(record: Dict[str, Any]) -> int:
     if isinstance(industries_list, str):
         try:
             industries_list = json.loads(industries_list)
-        except:
+        except Exception:
             industries_list = [x.strip() for x in industries_list.split(",") if x.strip()]
     
     industries_json = json.dumps(industries_list)
@@ -327,7 +327,7 @@ def get_all_enrollments() -> List[Dict[str, Any]]:
                 if isinstance(r["industries"], str):
                     try:
                         r["industries"] = json.loads(r["industries"])
-                    except:
+                    except Exception:
                         r["industries"] = []
             else:
                 r["industries"] = []
@@ -336,7 +336,7 @@ def get_all_enrollments() -> List[Dict[str, Any]]:
                 if isinstance(r["industry"], str):
                     try:
                         r["industry"] = json.loads(r["industry"])
-                    except:
+                    except Exception:
                         r["industry"] = []
             else:
                 r["industry"] = r["industries"]
@@ -367,7 +367,7 @@ def get_enrollment_by_id(enrollment_id: int) -> Optional[Dict[str, Any]]:
             if isinstance(record["industries"], str):
                 try:
                     record["industries"] = json.loads(record["industries"])
-                except:
+                except Exception:
                     record["industries"] = []
         else:
             record["industries"] = []
@@ -376,7 +376,7 @@ def get_enrollment_by_id(enrollment_id: int) -> Optional[Dict[str, Any]]:
             if isinstance(record["industry"], str):
                 try:
                     record["industry"] = json.loads(record["industry"])
-                except:
+                except Exception:
                     record["industry"] = []
         else:
             record["industry"] = record["industries"]
