@@ -85,7 +85,7 @@ def render_admin_login():
         # Embed logo as base64 to prevent flash
         if logo_b64:
             st.markdown(
-                f'<div style="text-align:center; margin-bottom: 2rem;"><img src="data:image/png;base64,{logo_b64}" width="200" alt="Sears Logo"/></div>',
+                f'<div style="text-align:center; margin-bottom: 1.5rem;"><img src="data:image/png;base64,{logo_b64}" width="280" alt="Sears Logo"/></div>',
                 unsafe_allow_html=True)
 
         st.markdown("### Admin Login")
