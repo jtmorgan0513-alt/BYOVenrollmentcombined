@@ -7,7 +7,7 @@ It runs on port 8001 and handles admin login, enrollment management, and setting
 Routes:
 - /admin - Admin login and dashboard
 """
-import streamlit as st
+import streamlit as st  # noqa: E402
 st.set_page_config(
     page_title="BYOV Admin Dashboard",
     page_icon="🔧",
@@ -15,13 +15,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-import os
-import time
-import logging
+import os  # noqa: E402
+import time  # noqa: E402
+import logging  # noqa: E402
 
-import database_pg as database
-from admin_dashboard_v2 import main as render_new_admin_dashboard
-from dashboard_sync import push_to_dashboard_single_request, pull_dashboard_data, push_dashboard_update
+import database_pg as database  # noqa: E402
+from admin_dashboard_v2 import main as render_new_admin_dashboard  # noqa: E402
+from dashboard_sync import push_to_dashboard_single_request, pull_dashboard_data, push_dashboard_update  # noqa: E402
 
 
 def validate_environment():
