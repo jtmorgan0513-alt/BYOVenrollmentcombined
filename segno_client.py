@@ -192,7 +192,7 @@ class SegnoClient:
                 "insurance_expiration_date": self._format_date(enrollment.get("insurance_exp")),
                 "registration_expiration_date": self._format_date(enrollment.get("registration_exp")),
                 "start_date": today,
-                "reffered_by": enrollment.get("referred_by", "Tyler Morgan"),
+                "reffered_by": enrollment.get("refered_by") or enrollment.get("referred_by") or "Tyler Morgan",
                 "mileage_rate": "0.57",
             }
             
