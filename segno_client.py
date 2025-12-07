@@ -167,6 +167,10 @@ class SegnoClient:
             
             today = datetime.now().strftime("%m/%d/%Y")
             
+            # Map employment status to Segno enrollment type
+            is_new_hire = enrollment.get("is_new_hire", False)
+            enrolment_type = "new" if is_new_hire else "existing"
+            
             form_data = {
                 "module": "Sears_Drive_Enrolment",
                 "action": "Submit",
@@ -179,7 +183,7 @@ class SegnoClient:
                 "isDuplicate": "false",
                 "offset": "1",
                 "associate": enrollment.get("full_name", ""),
-                "enrolment_type": "new",
+                "enrolment_type": enrolment_type,
                 "enrolment_status": "enrolled",
                 "vehicle_year": str(enrollment.get("year", "")),
                 "vehicle_make": enrollment.get("make", ""),
