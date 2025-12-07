@@ -778,13 +778,13 @@ def wizard_step_3():
     
     if is_docusign_state:
         st.info("""
-        **California Enrollees:** Due to state regulations, you will receive a DocuSign 
-        email to sign the policy electronically. Please check your email after submitting 
-        your enrollment.
+        **California Enrollees:** Due to state regulations, you will receive a **text message** 
+        from **Crystal Cash** requesting a DocuSign signature. Please look out for this text 
+        message after submitting your enrollment.
         """)
         
         policy_acknowledged = st.checkbox(
-            "I have read and agree to the BYOV Policy terms. I understand I will receive a DocuSign email to complete my signature.",
+            "I have read and agree to the BYOV Policy terms. I understand I will receive a text message from Crystal Cash with a DocuSign request to complete my signature.",
             key="wiz_policy_ack"
         )
     else:
