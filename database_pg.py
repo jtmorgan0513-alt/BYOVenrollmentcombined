@@ -78,6 +78,7 @@ def _create_connection():
     # Try to get from pool first
     pool_instance = _get_pool()
     if pool_instance:
+        conn = None
         try:
             conn = pool_instance.getconn()
             # Test connection is still alive
@@ -86,10 +87,11 @@ def _create_connection():
             return conn
         except Exception:
             # Connection from pool is stale, close and get new one
-            try:
-                pool_instance.putconn(conn, close=True)
-            except Exception:
-                pass
+            if conn is not None:
+                try:
+                    pool_instance.putconn(conn, close=True)
+                except Exception:
+                    pass
     
     # Fallback to direct connection with retry
     last_error = None
