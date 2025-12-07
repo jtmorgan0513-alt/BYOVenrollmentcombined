@@ -25,7 +25,7 @@ from mimetypes import guess_type
 import requests
 import certifi
 
-import database
+import database_pg as database
 import file_storage
 
 

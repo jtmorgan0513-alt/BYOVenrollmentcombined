@@ -17,7 +17,7 @@ from typing import List, Dict, Any, Optional
 
 import streamlit as st
 
-import database
+import database_pg as database
 import file_storage
 from dashboard_sync import push_to_dashboard_single_request, clear_enrollment_cache
 from notifications import send_hr_policy_notification

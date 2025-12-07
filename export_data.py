@@ -7,7 +7,7 @@ This preserves all enrollments, documents, checklists, and settings.
 import json
 import os
 from datetime import datetime
-import database
+import database_pg as database
 
 def export_all_data():
     """Export all database tables to JSON files."""
