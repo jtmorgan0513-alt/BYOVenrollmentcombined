@@ -1,0 +1,46 @@
+psycopg2.OperationalError: This app has encountered an error. The original error message is redacted to prevent data leaks. Full error details have been recorded in the logs (if you're on Streamlit Cloud, click on 'Manage app' in the lower right of your app).
+Traceback:
+File "/home/runner/workspace/.pythonlibs/lib/python3.12/site-packages/streamlit/runtime/scriptrunner/exec_code.py", line 129, in exec_func_with_error_handling
+    result = func()
+             ^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.12/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 669, in code_to_exec
+    exec(code, module.__dict__)  # noqa: S102
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/enrollment_app.py", line 1223, in <module>
+    main()
+File "/home/runner/workspace/enrollment_app.py", line 1114, in main
+    init_database()
+File "/home/runner/workspace/.pythonlibs/lib/python3.12/site-packages/streamlit/runtime/caching/cache_utils.py", line 228, in __call__
+    return self._get_or_create_cached_value(args, kwargs, spinner_message)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.12/site-packages/streamlit/runtime/caching/cache_utils.py", line 270, in _get_or_create_cached_value
+    return self._handle_cache_miss(cache, value_key, func_args, func_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.12/site-packages/streamlit/runtime/caching/cache_utils.py", line 329, in _handle_cache_miss
+    computed_value = self._info.func(*func_args, **func_kwargs)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/enrollment_app.py", line 90, in init_database
+    database.init_db()
+File "/home/runner/workspace/database_pg.py", line 182, in init_db
+    with get_cursor(dict_cursor=False) as cursor:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/nix/store/vnvdzw4182wb2ifzi0cczhv80yfnpx1q-python3-3.12.11/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+File "/home/runner/workspace/database_pg.py", line 152, in get_cursor
+    with get_connection() as conn:
+         ^^^^^^^^^^^^^^^^
+File "/nix/store/vnvdzw4182wb2ifzi0cczhv80yfnpx1q-python3-3.12.11/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+File "/home/runner/workspace/database_pg.py", line 133, in get_connection
+    conn = _create_connection()
+           ^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/database_pg.py", line 109, in _create_connection
+    raise last_error if last_error else RuntimeError("Failed to connect to database")
+File "/home/runner/workspace/database_pg.py", line 100, in _create_connection
+    conn = psycopg2.connect(DATABASE_URL, connect_timeout=10)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.12/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
