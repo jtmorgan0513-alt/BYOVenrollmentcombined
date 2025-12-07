@@ -533,15 +533,15 @@ def wizard_step_1():
     with col_next:
         if st.button("Next →", use_container_width=True, type="primary"):
             errors = []
-            if not first_name.strip():
+            if not (first_name or '').strip():
                 errors.append("First Name is required")
-            if not last_name.strip():
+            if not (last_name or '').strip():
                 errors.append("Last Name is required")
-            if not tech_id.strip():
+            if not (tech_id or '').strip():
                 errors.append("Enterprise ID is required")
             if not state:
                 errors.append("State is required")
-            if not is_new_hire and not truck_number.strip():
+            if not is_new_hire and not (truck_number or '').strip():
                 errors.append("Truck Number is required for existing technicians")
             if not selected_industries:
                 errors.append("Select at least one industry")
@@ -551,16 +551,16 @@ def wizard_step_1():
                     st.error(e)
             else:
                 st.session_state.wizard_data.update({
-                    'first_name': first_name.strip(),
-                    'last_name': last_name.strip(),
+                    'first_name': (first_name or '').strip(),
+                    'last_name': (last_name or '').strip(),
                     'full_name': full_name,
-                    'tech_id': tech_id.strip().upper(),
-                    'district': district.strip(),
-                    'referred_by': referred_by.strip(),
+                    'tech_id': (tech_id or '').strip().upper(),
+                    'district': (district or '').strip(),
+                    'referred_by': (referred_by or '').strip(),
                     'state': state,
                     'employment_status': employment_status,
                     'is_new_hire': is_new_hire,
-                    'truck_number': truck_number.strip() if truck_number else '',
+                    'truck_number': (truck_number or '').strip(),
                     'industries': selected_industries
                 })
                 st.session_state.wizard_step = 2
@@ -587,8 +587,8 @@ def wizard_step_2():
     col_decode, col_spacer = st.columns([1, 3])
     with col_decode:
         if st.button("Decode VIN", use_container_width=True):
-            if vin.strip():
-                decoded = decode_vin(vin.strip())
+            if (vin or '').strip():
+                decoded = decode_vin((vin or '').strip())
                 if decoded:
                     st.session_state.wizard_data['year'] = decoded.get('year', '')
                     st.session_state.wizard_data['make'] = decoded.get('make', '')
@@ -629,9 +629,10 @@ def wizard_step_2():
     
     col_ins1, col_ins2 = st.columns(2)
     with col_ins1:
+        saved_ins_exp = data.get('insurance_exp', '')
         insurance_exp = st.date_input(
             "Insurance Expiration Date",
-            value=datetime.strptime(data.get('insurance_exp'), '%Y-%m-%d').date() if data.get('insurance_exp') else None,
+            value=datetime.strptime(saved_ins_exp, '%Y-%m-%d').date() if saved_ins_exp else None,
             min_value=date.today(),
             key="wiz_insurance_exp"
         )
@@ -646,9 +647,10 @@ def wizard_step_2():
     
     col_reg1, col_reg2 = st.columns(2)
     with col_reg1:
+        saved_reg_exp = data.get('registration_exp', '')
         registration_exp = st.date_input(
             "Registration Expiration Date",
-            value=datetime.strptime(data.get('registration_exp'), '%Y-%m-%d').date() if data.get('registration_exp') else None,
+            value=datetime.strptime(saved_reg_exp, '%Y-%m-%d').date() if saved_reg_exp else None,
             min_value=date.today(),
             key="wiz_registration_exp"
         )
@@ -664,13 +666,13 @@ def wizard_step_2():
     with col_next:
         if st.button("Next →", use_container_width=True, type="primary"):
             errors = []
-            if not vin.strip():
+            if not (vin or '').strip():
                 errors.append("VIN is required")
-            if not year.strip():
+            if not (year or '').strip():
                 errors.append("Vehicle Year is required")
-            if not make.strip():
+            if not (make or '').strip():
                 errors.append("Vehicle Make is required")
-            if not model.strip():
+            if not (model or '').strip():
                 errors.append("Vehicle Model is required")
             if not vehicle_photos:
                 errors.append("At least one vehicle photo is required")
@@ -688,10 +690,10 @@ def wizard_step_2():
                     st.error(e)
             else:
                 st.session_state.wizard_data.update({
-                    'vin': vin.strip().upper(),
-                    'year': year.strip(),
-                    'make': make.strip(),
-                    'model': model.strip(),
+                    'vin': (vin or '').strip().upper(),
+                    'year': (year or '').strip(),
+                    'make': (make or '').strip(),
+                    'model': (model or '').strip(),
                     'insurance_exp': insurance_exp.strftime('%Y-%m-%d') if insurance_exp else '',
                     'registration_exp': registration_exp.strftime('%Y-%m-%d') if registration_exp else '',
                     'vehicle_photos': vehicle_photos,
