@@ -1,0 +1,165 @@
+You are working in my BYOV enrollment / admin dashboard project.
+
+GOAL
+We MUST create a new Segno “Sears Drive Enrollment” for each BYOV enrollment that gets approved in my admin dashboard. That Segno enrollment is what creates the mileage form row that Snowflake uses for the BYOV metrics dashboard. I do NOT want to manually log into Segno or touch its UI anymore — the sync to Segno should be fully automated from my app.
+
+VERY IMPORTANT CONSTRAINTS
+- Do NOT change or remove any HTML/CSS/layout in admin_dashboard_v2.py.
+- Do NOT touch inject_admin_theme_css() or any of the card layout / stats bar / tabs / actions styling.
+- You may ONLY add:
+  - new backend code to talk to Segno, and
+  - small, clearly scoped calls from the existing Streamlit “Approve & Sync” flow into that backend.
+- Do NOT break existing “Approve & Sync” behavior: it must still do everything it does today (dashboard sync, checklist updates, notifications, etc.) and then ALSO sync to Segno.
+
+SEGNO EXTERNAL API BEHAVIOR (FROM HAR CAPTURE)
+Segno lives at:
+- Base URL: https://workflow.segnosystems.com/
+
+When a Sears Drive enrollment is submitted, the browser performs this POST:
+
+- Method: POST
+- URL: https://workflow.segnosystems.com/index.php
+- Content-Type: application/x-www-form-urlencoded
+
+Key control fields:
+- module = Sears_Drive_Enrolment
+- action = Submit
+- record = <Segno enrollment GUID>
+- return_module = Sears_Drive_Enrolment
+- return_action = DetailView
+- return_id = <same GUID>
+- relate_to = Sears_Drive_Enrolment
+- relate_id = <same GUID>
+- isDuplicate = false
+- offset = 1
+
+Key data fields (form fields – x-www-form-urlencoded):
+- associate                    → technician full name
+- user_id_c                    → technician ID (LDAP/Tech ID)
+- enrolment_type               → "new"
+- enrolment_status             → "enrolled"
+- vehicle_year                 → vehicle year
+- vehicle_make                 → vehicle make
+- vehicle_model                → vehicle model
+- vehicle_cargo                → vehicle cargo / size field
+- insurance_expiration_date    → insurance expiration date (MM/DD/YYYY)
+- registration_expiration_date → registration expiration date (MM/DD/YYYY)
+- start_date                   → BYOV start date (MM/DD/YYYY)
+- reffered_by                  → “Tyler Morgan” or whoever is the referring lead (note the misspelling “reffered_by” – keep it EXACT)
+- mileage_rate                 → 0.57 (or current BYOV mileage rate)
+- product flags as 0/1 checkboxes:
+  - cook
+  - dish
+  - mw
+  - wh
+  - hvac
+  - ref
+  - l
+  - lg
+  - pmt
+  - apt
+  (e.g. hvac = 1 if tech services HVAC, others 0)
+
+You must build the integration so that these Segno fields are populated from our existing enrollment record in our database. Use the appropriate field names from our DB rather than hardcoding values.
+
+AUTH / SECURITY
+Segno requires authentication. You must NOT hardcode credentials.
+
+Implement a Segno client that expects these environment variables:
+
+- SEGNO_BASE_URL         (default: https://workflow.segnosystems.com/)
+- SEGNO_USERNAME         (service account username)
+- SEGNO_PASSWORD         (service account password)
+
+You will:
+1. Implement a login step that authenticates against Segno once, stores the session cookie, and reuses it for subsequent enrollment submissions.
+2. If the session expires, automatically re-login using SEGNO_USERNAME / SEGNO_PASSWORD and retry the submission once.
+3. Do all of this in backend code (NOT in Streamlit, NOT in the browser) so credentials never hit the client.
+
+If you need to infer the login endpoint, use the same base (index.php) with module/action from the existing Segno login flow pattern typical of SugarCRM/SuiteCRM-style apps (username/password POST to index.php or a dedicated auth route), and keep that logic encapsulated in the Segno client with clear TODOs if some details are unknown.
+
+INTERNAL API ENDPOINTS TO ADD (MY APP)
+I want a clean internal API inside my app that Streamlit can call when an enrollment is approved.
+
+Back-end:
+- Add a module/class for Segno integration:
+  - If we’re using Node/Express, create something like server/segnoClient.ts (or .js).
+  - If we’re using Python for backend tasks, create segno_client.py.
+
+The Segno client must expose at least:
+
+- submit_enrollment_to_segno(enrollment: dict) -> dict
+  - Takes a full enrollment record from our DB.
+  - Maps our DB fields to Segno fields listed above.
+  - Performs the authenticated POST to https://workflow.segnosystems.com/index.php with Content-Type: application/x-www-form-urlencoded and the exact field names described.
+  - Returns a structured result, e.g. { "success": True/False, "status_code": int, "error": str | None, "segno_record_id": str | None }.
+
+Internal HTTP endpoint:
+- Add an internal route in our backend that Streamlit can call:
+
+  POST /api/segno/sync-enrollment
+  body: { "enrollment_id": "<our internal enrollment id>" }
+
+Behavior:
+- Look up the enrollment by our internal id in the database.
+- Call submit_enrollment_to_segno(enrollment).
+- On success:
+  - Store Segno record ID (if available) in our DB, e.g. segno_record_id.
+  - Update segno_sync_status to "synced" (add this column/field if it doesn’t exist).
+- On failure:
+  - Log the error and return a JSON error payload.
+- Response JSON example:
+  { "success": true, "status_code": 200, "segno_record_id": "<id>" }
+
+Do NOT expose Segno credentials or cookies to the client.
+
+STREAMLIT / ADMIN DASHBOARD INTEGRATION
+File: admin_dashboard_v2.py
+
+Constraints:
+- Do NOT change any of the HTML / CSS wrappers or styling in admin_dashboard_v2.py.
+- Do NOT remove or restructure:
+  - <div class="record-card">
+  - .card-header
+  - .stats-bar
+  - .stat-item
+  - the document review tabs
+  - the Actions expander layout
+- You may ONLY add a small, well-contained call out from the existing Approve & Sync logic.
+
+In admin_dashboard_v2.py:
+- Within render_record_card(), inside the existing "Actions – Approve enrollment and send notifications" expander, hook into the point where the enrollment has been successfully approved and synced to the BYOV dashboard (the place where database.approve_enrollment(...) and mark_checklist_task_by_key(...) are called and we currently show "Enrollment approved and synced to dashboard!").
+
+At that point:
+1. Make a request to the new internal API endpoint /api/segno/sync-enrollment with the current enrollment id.
+   - Use our existing backend call pattern (if a helper for calling our own API exists, reuse it; otherwise add a small helper function in Python to POST to our backend with proper base URL and authentication if needed).
+2. If the Segno sync succeeds:
+   - Mark in the DB that this enrollment is Segno-synced, e.g. database.mark_checklist_task_by_key(enrollment_id, "segno_synced", True, "System - Segno Sync") or a similar field.
+   - Show a secondary success message like "Segno enrollment created successfully."
+3. If Segno sync fails:
+   - Do NOT block local approval.
+   - Show a warning/error in the Streamlit UI with the error message returned from the internal API.
+   - Leave segno_sync_status as "pending" or "failed" so we can retry later.
+
+OPTIONAL (BUT NICE TO HAVE)
+- Add a small Segno status indicator somewhere in the card (text only, no styling changes) that shows:
+  - "Segno: Pending"
+  - "Segno: Synced"
+  - "Segno: Failed – see logs"
+- Implement a retry Segno sync button in the Actions expander if segno_sync_status is not “synced”. Again, do not change styling, just add another st.button that calls the same internal API.
+
+SUMMARY OF WORK TO DO
+1. Implement a Segno client module that:
+   - Logs in with SEGNO_USERNAME/SEGNO_PASSWORD via SEGNO_BASE_URL.
+   - Posts a Sears_Drive_Enrolment Submit request to https://workflow.segnosystems.com/index.php with the field names and mapping described above.
+   - Handles session cookie refresh.
+2. Implement internal backend route:
+   - POST /api/segno/sync-enrollment { enrollment_id }
+3. Wire admin_dashboard_v2.py:
+   - After successful approval/sync to our BYOV dashboard, call /api/segno/sync-enrollment and surface success/failure in the Actions expander.
+4. Add DB fields if missing:
+   - segno_sync_status (pending/synced/failed)
+   - segno_record_id (string)
+5. Show me the diffs for all files you modify and a brief summary of how to configure SEGNO_BASE_URL, SEGNO_USERNAME, SEGNO_PASSWORD in Replit secrets.
+
+Do all of this without changing any of the visual styling of the admin dashboard.
