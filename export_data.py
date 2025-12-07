@@ -27,6 +27,8 @@ def export_all_data():
     
     for enrollment in enrollments:
         eid = enrollment.get('id')
+        if eid is None:
+            continue
         
         docs = database.get_documents_for_enrollment(eid) or []
         for doc in docs:
