@@ -20,7 +20,6 @@ import time  # noqa: E402
 import logging  # noqa: E402
 
 import database_pg as database  # noqa: E402
-from admin_dashboard_v2 import main as render_new_admin_dashboard  # noqa: E402
 
 
 def validate_environment():
@@ -97,6 +96,7 @@ def render_admin_dashboard():
             st.session_state.admin_authenticated = False
             st.rerun()
     
+    from admin_dashboard_v2 import main as render_new_admin_dashboard
     render_new_admin_dashboard()
 
 
