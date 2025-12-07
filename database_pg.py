@@ -109,6 +109,8 @@ def _create_connection():
 
 def _return_connection(conn):
     """Return connection to pool or close it."""
+    if conn.closed:
+        return
     pool_instance = _get_pool()
     if pool_instance:
         try:
@@ -129,10 +131,12 @@ def get_connection():
     conn = _create_connection()
     try:
         yield conn
-        conn.commit()
+        if not conn.closed:
+            conn.commit()
     except Exception:
         try:
-            conn.rollback()
+            if not conn.closed:
+                conn.rollback()
         except Exception:
             pass
         raise
