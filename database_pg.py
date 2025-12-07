@@ -308,6 +308,8 @@ def insert_enrollment(record: Dict[str, Any]) -> int:
             record.get("last_name")
         ))
         result = cursor.fetchone()
+        if result is None:
+            raise ValueError("Failed to insert enrollment")
         return result["id"] if isinstance(result, dict) else result[0]
 
 
@@ -434,7 +436,7 @@ def update_enrollment(enrollment_id: int, updates: Dict[str, Any]):
         )
 
 
-def set_dashboard_sync_info(enrollment_id: int, dashboard_tech_id: str = None, report: dict = None):
+def set_dashboard_sync_info(enrollment_id: int, dashboard_tech_id: Optional[str] = None, report: Optional[dict] = None):
     """Persist dashboard sync metadata on an enrollment."""
     fields = []
     values = []
@@ -819,7 +821,7 @@ def get_checklist_task_recipients() -> Dict[str, str]:
             value = row.get('setting_value') if isinstance(row, dict) else row[0]
             if isinstance(value, str):
                 return json.loads(value)
-            return value
+            return value if isinstance(value, dict) else {}
         return {}
 
 
@@ -919,7 +921,9 @@ def confirm_docusign_token(token: str) -> Dict[str, Any]:
         if not row:
             return {'error': 'Invalid or expired confirmation link'}
         
-        if row.get('confirmed'):
+        row_dict = dict(row) if hasattr(row, 'keys') else {'id': row[0], 'enrollment_id': row[1], 'confirmed': row[2], 'full_name': row[3], 'tech_id': row[4]}
+        
+        if row_dict.get('confirmed'):
             return {'error': 'This DocuSign has already been confirmed', 'already_confirmed': True}
         
         cursor.execute("""
@@ -928,14 +932,15 @@ def confirm_docusign_token(token: str) -> Dict[str, Any]:
             WHERE token = %s
         """, (datetime.now(), token))
         
-        enrollment_id = row.get('enrollment_id')
-        mark_checklist_task_by_key(enrollment_id, 'policy_hshr', completed=True, completed_by='DocuSign Confirmation')
+        enrollment_id = row_dict.get('enrollment_id')
+        if enrollment_id is not None:
+            mark_checklist_task_by_key(int(enrollment_id), 'policy_hshr', completed=True, completed_by='DocuSign Confirmation')
         
         return {
             'success': True,
             'enrollment_id': enrollment_id,
-            'tech_name': row.get('full_name'),
-            'tech_id': row.get('tech_id')
+            'tech_name': row_dict.get('full_name'),
+            'tech_id': row_dict.get('tech_id')
         }
 
 
@@ -949,11 +954,12 @@ def get_docusign_status(enrollment_id: int) -> Dict[str, Any]:
         """, (enrollment_id,))
         row = cursor.fetchone()
         if row:
+            row_dict = dict(row) if hasattr(row, 'keys') else {'token': row[0], 'confirmed': row[1], 'confirmed_at': row[2], 'created_at': row[3]}
             return {
                 'has_token': True,
-                'confirmed': row.get('confirmed', False),
-                'confirmed_at': str(row.get('confirmed_at')) if row.get('confirmed_at') else None,
-                'created_at': str(row.get('created_at')) if row.get('created_at') else None
+                'confirmed': row_dict.get('confirmed', False),
+                'confirmed_at': str(row_dict.get('confirmed_at')) if row_dict.get('confirmed_at') else None,
+                'created_at': str(row_dict.get('created_at')) if row_dict.get('created_at') else None
             }
         return {'has_token': False, 'confirmed': False}
 
