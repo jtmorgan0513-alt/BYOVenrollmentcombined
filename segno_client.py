@@ -141,12 +141,13 @@ class SegnoClient:
         
         return flags
     
-    def submit_enrollment(self, enrollment: Dict[str, Any]) -> Dict[str, Any]:
+    def submit_enrollment(self, enrollment: Dict[str, Any], retry_count: int = 0) -> Dict[str, Any]:
         """
         Submit an enrollment to Segno Sears_Drive_Enrolment module.
         
         Args:
             enrollment: Full enrollment record from our database
+            retry_count: Internal counter to prevent infinite retries
             
         Returns:
             dict with success, status_code, error, segno_record_id
@@ -193,6 +194,8 @@ class SegnoClient:
                 **industry_flags
             }
             
+            print(f"[Segno] Submitting enrollment for {enrollment.get('full_name', 'Unknown')}")
+            
             response = self.session.post(
                 f"{self.base_url}/index.php",
                 data=form_data,
@@ -201,11 +204,20 @@ class SegnoClient:
                 allow_redirects=True
             )
             
-            if response.status_code == 401 or "login" in response.url.lower():
-                print("[Segno] Session expired, re-authenticating...")
+            print(f"[Segno] Response status: {response.status_code}, URL: {response.url[:100]}")
+            
+            # Check for session expiration - only if explicitly redirected to login page
+            # and we haven't already retried
+            is_login_redirect = (
+                response.status_code == 401 or 
+                ("action=Login" in response.url and "module=Users" in response.url)
+            )
+            
+            if is_login_redirect and retry_count < 1:
+                print("[Segno] Session expired, re-authenticating (attempt 1)...")
                 self.authenticated = False
                 if self.login():
-                    return self.submit_enrollment(enrollment)
+                    return self.submit_enrollment(enrollment, retry_count + 1)
                 else:
                     return {
                         "success": False,
@@ -213,12 +225,26 @@ class SegnoClient:
                         "error": "Session expired and re-authentication failed",
                         "segno_record_id": None
                     }
+            elif is_login_redirect:
+                return {
+                    "success": False,
+                    "status_code": 401,
+                    "error": "Authentication failed after retry",
+                    "segno_record_id": None
+                }
             
             if response.status_code == 200:
                 segno_id = None
+                import re
+                # Try to extract record ID from URL
                 if "record=" in response.url:
-                    import re
                     match = re.search(r'record=([a-f0-9-]+)', response.url)
+                    if match:
+                        segno_id = match.group(1)
+                
+                # Also check response body for record ID
+                if not segno_id:
+                    match = re.search(r'record["\s:=]+([a-f0-9-]{36})', response.text)
                     if match:
                         segno_id = match.group(1)
                 
