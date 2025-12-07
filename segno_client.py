@@ -240,10 +240,33 @@ class SegnoClient:
             
             print(f"[Segno] Submitting enrollment for {enrollment.get('full_name', 'Unknown')}")
             
+            # First visit the EditView page to establish session state (like browser does)
+            edit_url = f"{self.base_url}/index.php?module=Sears_Drive_Enrolment&action=EditView&return_module=Sears_Drive_Enrolment&return_action=DetailView"
+            edit_response = self.session.get(edit_url, timeout=30)
+            print(f"[Segno] EditView response: {edit_response.status_code}")
+            
+            # Check if EditView redirected to login
+            if "action=Login" in edit_response.url:
+                print("[Segno] EditView redirected to login - session invalid")
+                self.authenticated = False
+                if retry_count < 1 and self.login():
+                    return self.submit_enrollment(enrollment, retry_count + 1)
+                return {
+                    "success": False,
+                    "status_code": 401,
+                    "error": "Session expired during EditView",
+                    "segno_record_id": None
+                }
+            
+            # Submit the form with proper headers (matching browser)
             response = self.session.post(
                 f"{self.base_url}/index.php",
                 data=form_data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Origin": self.base_url,
+                    "Referer": edit_url,
+                },
                 timeout=30,
                 allow_redirects=True
             )
