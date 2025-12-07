@@ -758,16 +758,21 @@ def render_record_card(record: Dict[str, Any]) -> None:
         with tabs[3]:
             if sig_docs:
                 path = sig_docs[0].get("file_path")
-                file_bytes = _read_file_safe(path)
-                if file_bytes:
-                    _render_pdf_preview(file_bytes)
-                    st.download_button(
-                        label="⬇️ Download Signed Form",
-                        data=file_bytes,
-                        file_name=os.path.basename(path or "signed_enrollment.pdf"),
-                        mime="application/pdf",
-                        key=f"dl_pdf_{enrollment_id}",
-                    )
+                if not path:
+                    st.info("Signed form file path not found.")
+                elif file_storage.file_exists(path):
+                    file_bytes = _read_file_safe(path)
+                    if file_bytes:
+                        _render_pdf_preview(file_bytes)
+                        st.download_button(
+                            label="⬇️ Download Signed Form",
+                            data=file_bytes,
+                            file_name=os.path.basename(path),
+                            mime="application/pdf",
+                            key=f"dl_pdf_{enrollment_id}",
+                        )
+                    else:
+                        st.info("Signed form file not found.")
                 else:
                     st.info("Signed form file not found.")
             else:
