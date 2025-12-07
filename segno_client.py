@@ -240,9 +240,31 @@ class SegnoClient:
             
             print(f"[Segno] Submitting enrollment for {enrollment.get('full_name', 'Unknown')}")
             
-            # Step 1: Visit the module list page first (like clicking on the module in navigation)
-            list_url = f"{self.base_url}/index.php?module=Sears_Drive_Enrolment&action=index"
-            list_response = self.session.get(list_url, timeout=30)
+            # Step 1: Visit the Home page first
+            home_url = f"{self.base_url}/index.php?module=Home&action=index"
+            home_response = self.session.get(home_url, timeout=30)
+            print(f"[Segno] Home response: {home_response.status_code}, URL: {home_response.url[:80]}")
+            
+            # Check if redirected to login
+            if "action=Login" in home_response.url:
+                print("[Segno] Home page redirected to login - session invalid")
+                self.authenticated = False
+                if retry_count < 1 and self.login():
+                    return self.submit_enrollment(enrollment, retry_count + 1)
+                return {
+                    "success": False,
+                    "status_code": 401,
+                    "error": "Session expired on home page",
+                    "segno_record_id": None
+                }
+            
+            # Step 2: Visit the BYOV module list page
+            list_url = f"{self.base_url}/index.php?module=Sears_Drive_Enrolment&action=index&parentTab=%F0%9F%9A%99%20BYOV"
+            list_response = self.session.get(
+                list_url, 
+                timeout=30,
+                headers={"Referer": home_url}
+            )
             print(f"[Segno] Module list response: {list_response.status_code}, URL: {list_response.url[:80]}")
             
             # Check if list page redirected to login
@@ -258,14 +280,12 @@ class SegnoClient:
                     "segno_record_id": None
                 }
             
-            # Step 2: Click "Create" to go to the EditView page
+            # Step 3: Click "Create" to go to the EditView page
             edit_url = f"{self.base_url}/index.php?module=Sears_Drive_Enrolment&action=EditView&return_module=Sears_Drive_Enrolment&return_action=DetailView"
             edit_response = self.session.get(
                 edit_url, 
                 timeout=30,
-                headers={
-                    "Referer": list_url,
-                }
+                headers={"Referer": list_url}
             )
             print(f"[Segno] EditView response: {edit_response.status_code}, URL: {edit_response.url[:80]}")
             
@@ -282,27 +302,51 @@ class SegnoClient:
                     "segno_record_id": None
                 }
             
-            # Submit the form with proper headers (matching browser)
+            # Step 4: Submit the form with proper headers (try Submit first)
+            submit_headers = {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Origin": self.base_url,
+                "Referer": edit_url,
+            }
+            
             response = self.session.post(
                 f"{self.base_url}/index.php",
                 data=form_data,
-                headers={
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "Origin": self.base_url,
-                    "Referer": edit_url,
-                },
+                headers=submit_headers,
                 timeout=30,
                 allow_redirects=True
             )
             
-            print(f"[Segno] Response status: {response.status_code}, URL: {response.url[:100]}")
+            print(f"[Segno] Submit response: {response.status_code}, URL: {response.url[:100]}")
             
-            # Check for session expiration - only if explicitly redirected to login page
-            # and we haven't already retried
+            # Check for session expiration or failed submit
             is_login_redirect = (
                 response.status_code == 401 or 
                 ("action=Login" in response.url and "module=Users" in response.url)
             )
+            
+            # If Submit failed, try Save as fallback
+            if is_login_redirect:
+                print("[Segno] Submit failed, trying Save action as fallback...")
+                form_data["action"] = "Save"
+                
+                # Re-visit EditView before Save attempt
+                self.session.get(edit_url, timeout=30, headers={"Referer": list_url})
+                
+                response = self.session.post(
+                    f"{self.base_url}/index.php",
+                    data=form_data,
+                    headers=submit_headers,
+                    timeout=30,
+                    allow_redirects=True
+                )
+                print(f"[Segno] Save response: {response.status_code}, URL: {response.url[:100]}")
+                
+                # Check again for login redirect
+                is_login_redirect = (
+                    response.status_code == 401 or 
+                    ("action=Login" in response.url and "module=Users" in response.url)
+                )
             
             if is_login_redirect and retry_count < 1:
                 print("[Segno] Session expired, re-authenticating (attempt 1)...")
