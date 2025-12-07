@@ -248,6 +248,8 @@ def init_db():
             cursor.execute("ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS truck_number TEXT")
             cursor.execute("ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS first_name TEXT")
             cursor.execute("ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS last_name TEXT")
+            cursor.execute("ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS segno_sync_status TEXT DEFAULT 'pending'")
+            cursor.execute("ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS segno_record_id TEXT")
         except Exception:
             pass  # Columns may already exist
 
@@ -455,6 +457,22 @@ def delete_enrollment(enrollment_id: int):
     """Delete an enrollment and its documents (CASCADE)."""
     with get_cursor() as cursor:
         cursor.execute("DELETE FROM enrollments WHERE id = %s", (enrollment_id,))
+
+
+def update_segno_status(enrollment_id: int, status: str, segno_record_id: Optional[str] = None):
+    """Update Segno sync status for an enrollment."""
+    with get_cursor() as cursor:
+        cursor.execute("""
+            UPDATE enrollments
+            SET segno_sync_status = %s,
+                segno_record_id = %s
+            WHERE id = %s
+        """, (status, segno_record_id, enrollment_id))
+
+
+def get_enrollment(enrollment_id: int) -> Optional[Dict[str, Any]]:
+    """Get a single enrollment by ID. Alias for get_enrollment_by_id."""
+    return get_enrollment_by_id(enrollment_id)
 
 
 def add_document(enrollment_id: int, doc_type: str, file_path: str):
