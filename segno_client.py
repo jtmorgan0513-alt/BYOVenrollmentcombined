@@ -179,19 +179,17 @@ class SegnoClient:
                 "isDuplicate": "false",
                 "offset": "1",
                 "associate": enrollment.get("full_name", ""),
-                "user_id_c": enrollment.get("tech_id", ""),
                 "enrolment_type": "new",
                 "enrolment_status": "enrolled",
-                "vehicle_year": enrollment.get("year", ""),
+                "vehicle_year": str(enrollment.get("year", "")),
                 "vehicle_make": enrollment.get("make", ""),
                 "vehicle_model": enrollment.get("model", ""),
-                "vehicle_cargo": "",
+                "vehicle_cargo": "20",
                 "insurance_expiration_date": self._format_date(enrollment.get("insurance_exp")),
                 "registration_expiration_date": self._format_date(enrollment.get("registration_exp")),
                 "start_date": today,
                 "reffered_by": enrollment.get("referred_by", "Tyler Morgan"),
                 "mileage_rate": "0.57",
-                **industry_flags
             }
             
             print(f"[Segno] Submitting enrollment for {enrollment.get('full_name', 'Unknown')}")
