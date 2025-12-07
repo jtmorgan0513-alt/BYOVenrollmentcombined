@@ -449,8 +449,7 @@ def _send_approval_notification(record: Dict[str, Any], enrollment_id: int) -> O
         return {"error": "No recipient email configured"}
     
     # Build email content based on included fields
-    include_fields = approval_settings.get("include_fields", [])
-    # ... email sending logic would go here
+    _ = approval_settings.get("include_fields", [])  # Reserved for future email customization
     
     return {"success": True}
 
