@@ -43,7 +43,6 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 
 import database_pg as database
-from database_pg import get_enrollment_by_id
 from notifications import send_email_notification, send_docusign_request_hr
 import file_storage
 
