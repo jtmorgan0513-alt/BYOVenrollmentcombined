@@ -1,19 +1,9 @@
 """
-BYOV Admin Dashboard V2 - Enhanced with Workflow Checklist and Visual Alignment
-
-UPDATES:
-- Visual styling matches HTML preview exactly
-- Full VIN display (not truncated)
-- Collapsed expanders by default (save space)
-- Workflow checklist system (4 steps)
-- Enhanced Segno sync with better error handling
-- Action button flex-based layout
-- Improved typography and spacing
+BYOV Admin Dashboard V2 - Card-based UI with full notification settings.
 
 Features:
 - Blue gradient card headers for each enrollment
-- Stats bar with full VIN, Insurance, Registration, Photos, Signature
-- Workflow checklist for tracking enrollment progress
+- Stats bar with VIN, Insurance, Registration, Photos, Signature
 - All user-inputted data visible in expandable sections
 - Document Review with tabs (Vehicle, Registration, Insurance, Form)
 - Actions with Approve, PDF to HR, Notify, Delete buttons
@@ -22,7 +12,6 @@ Features:
 import os
 import base64
 import json
-import concurrent.futures
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
@@ -91,17 +80,9 @@ ENROLLMENT_FIELDS = [
     ("submission_date", "Submission Date"),
 ]
 
-# Workflow checklist task definitions
-CHECKLIST_TASKS = {
-    'approved_synced': 'Vehicle Submission Approved & Sent to Dashboard',
-    'policy_hshr': 'Signed PDF sent to HR / DocuSign sent (CA)',
-    'segno_synced': 'Mileage Form Created in Segno',
-    'fleet_notified': 'Fleet, Inventory, Supplies Notified'
-}
-
 
 def inject_admin_theme_css() -> None:
-    """Injects the BYOV admin CSS matching HTML preview exactly."""
+    """Injects the BYOV admin CSS so Streamlit matches the new card design."""
     st.markdown(
         """
         <style>
@@ -113,13 +94,6 @@ def inject_admin_theme_css() -> None:
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
           background: #f9fafb;
           color: #1e293b;
-        }
-
-        /* Main Container - Match HTML preview */
-        [data-testid="stMainBlockContainer"] {
-          max-width: 1280px;
-          margin: 0 auto;
-          padding: 0 1.5rem 2rem;
         }
 
         /* Header */
@@ -159,14 +133,14 @@ def inject_admin_theme_css() -> None:
           font-weight: 600;
         }
 
-        /* Record Card - Updated margins */
+        /* Record Card */
         .record-card {
           background: white;
           border-radius: 12px;
           box-shadow: 0 1px 3px rgba(0,0,0,0.1);
           border: 1px solid #e5e7eb;
           overflow: hidden;
-          margin-bottom: 1.5rem;
+          margin-bottom: 1rem;
         }
 
         /* Card Header */
@@ -263,60 +237,28 @@ def inject_admin_theme_css() -> None:
         .stat-value.red { color: #ef4444; }
         .stat-value.mono { font-family: monospace; }
 
-        /* Streamlit Expander Overrides - Match HTML preview */
-        .streamlit-expanderHeader {
-          font-weight: 600 !important;
-          background: #f8fafc !important;
-          border-radius: 0 !important;
-          padding: 1rem 1.5rem !important;
-          font-size: 0.9rem !important;
-          color: #1e293b !important;
-        }
-
-        .streamlit-expanderHeader:hover {
-          background: #f1f5f9 !important;
-        }
-
-        /* Hide Streamlit's default expander icon */
-        .streamlit-expanderHeader svg {
-          display: none !important;
-        }
-
-        /* Add custom arrow icon */
-        .streamlit-expanderHeader::after {
-          content: '▼';
-          font-size: 0.75rem;
-          transition: transform 0.2s;
-          margin-left: auto;
-        }
-
-        details[open] .streamlit-expanderHeader::after {
-          transform: rotate(180deg);
-        }
-
-        /* Info Grid - Updated spacing */
+        /* Info Grid */
         .info-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 2rem;
-          padding: 1.5rem;
+          gap: 1.5rem;
+          padding: 1rem;
         }
 
         .info-section h4 {
-          font-size: 0.75rem;
+          font-size: 0.7rem;
           text-transform: uppercase;
           letter-spacing: 0.05em;
           color: #2563eb;
-          margin-bottom: 1rem;
+          margin-bottom: 0.75rem;
           padding-bottom: 0.5rem;
           border-bottom: 2px solid #2563eb;
-          font-weight: 700;
         }
 
         .info-row {
           display: flex;
           justify-content: space-between;
-          padding: 0.5rem 0;
+          padding: 0.4rem 0;
           font-size: 0.85rem;
           border-bottom: 1px solid #f1f5f9;
         }
@@ -325,101 +267,15 @@ def inject_admin_theme_css() -> None:
         .info-label { color: #6b7280; }
         .info-value { font-weight: 500; text-align: right; }
 
-        /* Workflow Checklist - Match HTML preview aesthetic */
-        .checklist-section {
-          padding: 0;
-        }
-
-        .checklist-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 1rem;
-          padding: 1rem 1.5rem;
-          background: white;
-          border-bottom: 1px solid #f1f5f9;
-          transition: background 0.15s;
-        }
-
-        .checklist-item:hover {
-          background: #f8fafc;
-        }
-
-        .checklist-item:last-child {
-          border-bottom: none;
-        }
-
-        .checklist-item.completed {
-          background: #f0fdf4;
-        }
-
-        .checklist-item.completed:hover {
-          background: #dcfce7;
-        }
-
-        .checklist-checkbox {
-          font-size: 1.5rem;
-          margin-top: 0.125rem;
-          flex-shrink: 0;
-        }
-
-        .checklist-checkbox.completed {
-          color: #16a34a;
-        }
-
-        .checklist-checkbox.pending {
-          color: #d1d5db;
-        }
-
-        .checklist-content {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .checklist-title {
-          font-weight: 600;
-          color: #1e293b;
-          margin-bottom: 0.375rem;
-          font-size: 0.9rem;
-          line-height: 1.4;
-        }
-
-        .checklist-status {
-          font-size: 0.75rem;
-          color: #6b7280;
-          display: flex;
-          align-items: center;
-          gap: 0.375rem;
-        }
-
-        .checklist-status.completed {
-          color: #16a34a;
-        }
-
-        .checklist-ca-note {
-          margin-top: 0.5rem;
-          padding: 0.5rem 0.75rem;
-          background: #eff6ff;
-          border: 1px solid #bfdbfe;
-          border-radius: 6px;
-          font-size: 0.75rem;
-          color: #1e40af;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        /* Warning box - Updated */
+        /* Warning box */
         .warning-box {
-          margin-top: 1rem;
-          padding: 0.75rem 1rem;
+          margin-top: 0.75rem;
+          padding: 0.75rem;
           background: #fefce8;
           border: 2px solid #fde047;
           border-radius: 8px;
-          font-size: 0.8rem;
+          font-size: 0.75rem;
           color: #854d0e;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
         }
 
         /* Main content area */
@@ -429,24 +285,13 @@ def inject_admin_theme_css() -> None:
           padding: 1.5rem;
         }
 
-        /* Custom button styles - Flex-based layout */
-        .actions-flex {
-          display: flex;
-          gap: 0.75rem;
-          padding: 0 1.5rem 1.5rem;
-        }
-
-        .approve-btn {
-          flex: 2;
-        }
-
+        /* Custom button styles */
         .approve-btn button {
           background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
           color: white !important;
           border: none !important;
           font-weight: 700 !important;
           box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3) !important;
-          width: 100%;
         }
 
         .approve-btn button:hover {
@@ -460,24 +305,15 @@ def inject_admin_theme_css() -> None:
           box-shadow: none !important;
         }
 
-        .pdf-btn {
-          flex: 1.5;
-        }
-
         .pdf-btn button {
           background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
           color: white !important;
           border: none !important;
           font-weight: 600 !important;
-          width: 100%;
         }
 
         .pdf-btn button:hover {
           background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
-        }
-
-        .notify-btn {
-          flex: 1.5;
         }
 
         .notify-btn button {
@@ -485,15 +321,10 @@ def inject_admin_theme_css() -> None:
           color: white !important;
           border: none !important;
           font-weight: 600 !important;
-          width: 100%;
         }
 
         .notify-btn button:hover {
           background: linear-gradient(135deg, #1f2937 0%, #111827 100%) !important;
-        }
-
-        .delete-btn {
-          flex: 1;
         }
 
         .delete-btn button {
@@ -501,7 +332,6 @@ def inject_admin_theme_css() -> None:
           color: #dc2626 !important;
           border: 2px solid #fecaca !important;
           font-weight: 600 !important;
-          width: 100%;
         }
 
         .delete-btn button:hover {
@@ -535,11 +365,18 @@ def inject_admin_theme_css() -> None:
         .stButton > button {
           border-radius: 8px;
           font-weight: 600;
-          transition: all 0.15s;
+          transition: all 0.15s ease;
         }
 
         .stButton > button:hover {
           transform: translateY(-1px);
+        }
+
+        /* Expander styling */
+        .streamlit-expanderHeader {
+          font-weight: 600;
+          background: #f8fafc;
+          border-radius: 8px;
         }
 
         /* Check dots for validation */
@@ -593,8 +430,7 @@ def _get_notification_settings() -> Dict[str, Any]:
 def _save_notification_settings(settings: Dict[str, Any]) -> bool:
     """Save notification settings to database."""
     try:
-        database.set_admin_settings("notification_settings",
-                                    json.dumps(settings))
+        database.save_admin_settings("notification_settings", settings)
         return True
     except Exception as e:
         st.error(f"Error saving settings: {e}")
@@ -620,8 +456,8 @@ def _send_approval_notification(
         return {"error": "No recipient email configured"}
 
     # Build email content based on included fields
-    include_fields = approval_settings.get("include_fields", [])
-    # ... email sending logic would go here
+    _ = approval_settings.get("include_fields",
+                              [])  # Reserved for future email customization
 
     return {"success": True}
 
@@ -633,6 +469,8 @@ def get_admin_records() -> List[Dict[str, Any]]:
 
     for e in enrollments:
         enrollment_id = e.get("id")
+        if enrollment_id is None:
+            continue
         docs = database.get_documents_for_enrollment(enrollment_id)
 
         signature_docs = [d for d in docs if d.get("doc_type") == "signature"]
@@ -648,8 +486,7 @@ def get_admin_records() -> List[Dict[str, Any]]:
                                                     "insurance"))
 
         vin = e.get("vin", "") or ""
-        # Show full VIN instead of truncated
-        vin_display = vin if vin else "-"
+        vin_tail = vin[-6:] if vin and len(vin) >= 6 else vin or "-"
 
         vehicle = f"{e.get('year', '')} {e.get('make', '')} {e.get('model', '')}".strip(
         )
@@ -672,7 +509,9 @@ def get_admin_records() -> List[Dict[str, Any]]:
             "submitted_date":
             _format_date(e.get("submission_date")),
             "vin":
-            vin_display,
+            vin or "-",
+            "vin_tail":
+            vin_tail,
             "insurance_exp":
             _format_date(e.get("insurance_exp")),
             "registration_exp":
@@ -770,129 +609,15 @@ def delete_enrollment(enrollment_id: int) -> bool:
         return False
 
 
-def render_workflow_checklist(enrollment_id: int, raw_data: Dict[str,
-                                                                 Any]) -> None:
-    """Render the workflow checklist for an enrollment."""
-    # Get checklist items from database
-    try:
-        checklist_items = database.get_checklist_tasks(enrollment_id)
-        checklist_dict = {item['task_key']: item for item in checklist_items}
-    except Exception:
-        checklist_dict = {}
-
-    is_california = raw_data.get('state', '').upper() == 'CA'
-
-    # Define all 4 checklist steps
-    steps = [
-        {
-            'key': 'approved_synced',
-            'title': '✅ Vehicle Submission Approved & Sent to Dashboard',
-            'auto': True,
-            'ca_special': False
-        },
-        {
-            'key':
-            'policy_hshr',
-            'title':
-            '📄 Signed PDF sent to HR' +
-            (' / DocuSign sent' if is_california else ''),
-            'auto':
-            False,  # Semi-auto: auto for non-CA, manual for CA
-            'ca_special':
-            is_california
-        },
-        {
-            'key': 'segno_synced',
-            'title': '📊 Mileage Form Created in Segno',
-            'auto': False,
-            'ca_special': False
-        },
-        {
-            'key': 'fleet_notified',
-            'title': '🔔 Fleet, Inventory, Supplies Notified',
-            'auto': False,
-            'ca_special': False
-        }
-    ]
-
-    st.markdown('<div class="checklist-section">', unsafe_allow_html=True)
-
-    for step in steps:
-        task = checklist_dict.get(step['key'], {})
-        is_completed = task.get('is_completed', False)
-        completed_by = task.get('completed_by', '')
-        completed_at = task.get('completed_at', '')
-
-        checkbox_class = 'completed' if is_completed else 'pending'
-        checkbox_icon = '✅' if is_completed else '☐'
-        item_class = 'completed' if is_completed else ''
-
-        st.markdown(f'<div class="checklist-item {item_class}">',
-                    unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="checklist-checkbox {checkbox_class}">{checkbox_icon}</div>',
-            unsafe_allow_html=True)
-        st.markdown('<div class="checklist-content">', unsafe_allow_html=True)
-        st.markdown(f'<div class="checklist-title">{step["title"]}</div>',
-                    unsafe_allow_html=True)
-
-        if is_completed:
-            completed_date = _format_date(
-                completed_at) if completed_at else 'Unknown date'
-            status_html = f'<div class="checklist-status completed">✓ Completed by {completed_by} on {completed_date}</div>'
-            st.markdown(status_html, unsafe_allow_html=True)
-        else:
-            st.markdown('<div class="checklist-status">⏳ Pending</div>',
-                        unsafe_allow_html=True)
-
-            # Show action buttons for incomplete tasks
-            if step['key'] == 'segno_synced':
-                # Special handling for Segno sync
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button(f"🔄 Sync to Segno",
-                                 key=f"sync_segno_{enrollment_id}",
-                                 use_container_width=True):
-                        st.session_state[
-                            f'trigger_segno_sync_{enrollment_id}'] = True
-                with col2:
-                    if st.button(f"✓ Mark Complete",
-                                 key=f"mark_segno_{enrollment_id}",
-                                 use_container_width=True):
-                        database.mark_checklist_task_by_key(
-                            enrollment_id, step['key'], True,
-                            "Admin - Manual Completion")
-                        clear_enrollment_cache()
-                        st.rerun()
-            elif not step['auto'] or step['ca_special']:
-                # Manual completion button
-                if st.button(f"✓ Mark Complete",
-                             key=f"mark_{step['key']}_{enrollment_id}",
-                             use_container_width=True):
-                    database.mark_checklist_task_by_key(
-                        enrollment_id, step['key'], True,
-                        "Admin - Manual Completion")
-                    clear_enrollment_cache()
-                    st.rerun()
-
-            # Show CA special note
-            if step['ca_special'] and is_california:
-                st.markdown(
-                    '<div class="checklist-ca-note">ℹ️ California: Requires DocuSign envelope completion</div>',
-                    unsafe_allow_html=True)
-
-        st.markdown('</div>',
-                    unsafe_allow_html=True)  # Close checklist-content
-        st.markdown('</div>', unsafe_allow_html=True)  # Close checklist-item
-
-    st.markdown('</div>', unsafe_allow_html=True)  # Close checklist-section
-
-
 def render_record_card(record: Dict[str, Any]) -> None:
     """Render a single record card with all data, photos, and actions."""
+    enrollment_id = record.get("id")
+    if enrollment_id is None:
+        st.error("Invalid enrollment record - missing ID")
+        return
+
     status = record.get("status", "in_review")
     is_validated = status == "validated"
-    enrollment_id = record.get("id")
 
     status_label = "✓ Validated" if is_validated else "⚠ In Review"
     status_class = "validated" if is_validated else "review"
@@ -900,6 +625,19 @@ def render_record_card(record: Dict[str, Any]) -> None:
     signature_ok = record.get("signature", False)
     sig_color = "#16a34a" if signature_ok else "#ef4444"
     sig_text = "✓ Yes" if signature_ok else "✗ Missing"
+
+    # Segno sync status
+    raw_data = record.get("_raw", {}) or {}
+    segno_stat = raw_data.get("segno_sync_status", "pending")
+    if segno_stat == "synced":
+        segno_color = "#16a34a"
+        segno_text = "✓ Synced"
+    elif segno_stat == "failed":
+        segno_color = "#ef4444"
+        segno_text = "✗ Failed"
+    else:
+        segno_color = "#f59e0b"
+        segno_text = "○ Pending"
 
     # Card Header with gradient
     st.markdown(
@@ -943,6 +681,10 @@ def render_record_card(record: Dict[str, Any]) -> None:
               <div class="stat-label">Signature</div>
               <div class="stat-value" style="color:{sig_color}">{sig_text}</div>
             </div>
+            <div class="stat-item">
+              <div class="stat-label">Segno</div>
+              <div class="stat-value" style="color:{segno_color}">{segno_text}</div>
+            </div>
           </div>
         </div>
         """,
@@ -952,78 +694,37 @@ def render_record_card(record: Dict[str, Any]) -> None:
     docs = record.get("_docs", [])
     raw = record.get("_raw", {}) or {}
 
-    # ---- Technician & Vehicle Details (COLLAPSED by default) ----
-    with st.expander("👤 Technician & Vehicle Details", expanded=False):
-        st.markdown('<div class="info-grid">', unsafe_allow_html=True)
+    # ---- Technician & Vehicle Details ----
+    with st.expander("👤 Technician & Vehicle Details", expanded=True):
+        col1, col2, col3 = st.columns(3)
 
-        # Technician Info
-        st.markdown('<div class="info-section">', unsafe_allow_html=True)
-        st.markdown('<h4>Technician Info</h4>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">Name</span><span class="info-value">{raw.get("full_name", "-")}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">Tech ID</span><span class="info-value">{raw.get("tech_id", "-")}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">Email</span><span class="info-value">{raw.get("email", "-")}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">Phone</span><span class="info-value">{raw.get("phone", "-")}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">Referred By</span><span class="info-value">{raw.get("referred_by", "-")}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        with col1:
+            st.markdown("**Technician Info**")
+            st.write(f"**Name:** {raw.get('full_name', '-')}")
+            st.write(f"**Tech ID:** {raw.get('tech_id', '-')}")
+            st.write(f"**Referred By:** {raw.get('referred_by', '-')}")
 
-        # Vehicle Info
-        st.markdown('<div class="info-section">', unsafe_allow_html=True)
-        st.markdown('<h4>Vehicle Info</h4>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">Year</span><span class="info-value">{raw.get("year", "-")}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">Make</span><span class="info-value">{raw.get("make", "-")}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">Model</span><span class="info-value">{raw.get("model", "-")}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">VIN</span><span class="info-value">{raw.get("vin", "-")}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">Industry</span><span class="info-value">{raw.get("industry", "-")}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown("**Vehicle Info**")
+            st.write(f"**Year:** {raw.get('year', '-')}")
+            st.write(f"**Make:** {raw.get('make', '-')}")
+            st.write(f"**Model:** {raw.get('model', '-')}")
+            st.write(f"**VIN:** {raw.get('vin', '-')}")
+            st.write(f"**Industry:** {raw.get('industry', '-')}")
 
-        # Compliance
-        st.markdown('<div class="info-section">', unsafe_allow_html=True)
-        st.markdown('<h4>Compliance</h4>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">District</span><span class="info-value">{raw.get("district", "-")}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">State</span><span class="info-value">{raw.get("state", "-")}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">Insurance Exp</span><span class="info-value">{_format_date(raw.get("insurance_exp"))}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">Registration Exp</span><span class="info-value">{_format_date(raw.get("registration_exp"))}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="info-row"><span class="info-label">Submitted</span><span class="info-value">{_format_date(raw.get("submission_date"))}</span></div>',
-            unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        with col3:
+            st.markdown("**Compliance**")
+            st.write(f"**District:** {raw.get('district', '-')}")
+            st.write(f"**State:** {raw.get('state', '-')}")
+            st.write(
+                f"**Insurance Exp:** {_format_date(raw.get('insurance_exp'))}")
+            st.write(
+                f"**Registration Exp:** {_format_date(raw.get('registration_exp'))}"
+            )
+            st.write(
+                f"**Submitted:** {_format_date(raw.get('submission_date'))}")
 
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # ---- Workflow Checklist (COLLAPSED by default) ----
-    with st.expander("📋 Workflow Checklist – Track enrollment progress",
-                     expanded=False):
-        render_workflow_checklist(enrollment_id, raw)
-
-    # ---- Document Review with Tabs (COLLAPSED by default) ----
+    # ---- Document Review with Tabs ----
     with st.expander(
             "📁 Document Review – Photos, registration, insurance, signed form",
             expanded=False):
@@ -1094,29 +795,33 @@ def render_record_card(record: Dict[str, Any]) -> None:
         with tabs[3]:
             if sig_docs:
                 path = sig_docs[0].get("file_path")
-                file_bytes = _read_file_safe(path)
-                if file_bytes:
-                    _render_pdf_preview(file_bytes)
-                    st.download_button(
-                        label="⬇️ Download Signed Form",
-                        data=file_bytes,
-                        file_name=os.path.basename(path
-                                                   or "signed_enrollment.pdf"),
-                        mime="application/pdf",
-                        key=f"dl_pdf_{enrollment_id}",
-                    )
+                if not path:
+                    st.info("Signed form file path not found.")
+                elif file_storage.file_exists(path):
+                    file_bytes = _read_file_safe(path)
+                    if file_bytes:
+                        _render_pdf_preview(file_bytes)
+                        st.download_button(
+                            label="⬇️ Download Signed Form",
+                            data=file_bytes,
+                            file_name=os.path.basename(path),
+                            mime="application/pdf",
+                            key=f"dl_pdf_{enrollment_id}",
+                        )
+                    else:
+                        st.info("Signed form file not found.")
                 else:
                     st.info("Signed form file not found.")
             else:
                 st.info("No signed enrollment form available.")
 
-    # ---- Actions (COLLAPSED by default) - Using flex layout ----
+    # ---- Actions ----
+    segno_status = raw.get("segno_sync_status", "pending")
+    segno_synced = segno_status == "synced"
+
     with st.expander("✅ Actions – Approve, notify, and manage enrollment",
                      expanded=False):
-        # Use HTML wrapper for flex layout
-        st.markdown('<div class="actions-flex">', unsafe_allow_html=True)
-
-        col1, col2, col3, col4 = st.columns([2, 1.5, 1.5, 1])
+        col1, col2, col3, col4, col5 = st.columns([2, 1.5, 1.5, 1.5, 1])
 
         with col1:
             st.markdown('<div class="approve-btn">', unsafe_allow_html=True)
@@ -1130,6 +835,17 @@ def render_record_card(record: Dict[str, Any]) -> None:
             st.markdown("</div>", unsafe_allow_html=True)
 
         with col2:
+            segno_btn_label = "✓ Segno Synced" if segno_synced else "🔄 Sync to Segno"
+            st.markdown('<div class="segno-btn">', unsafe_allow_html=True)
+            sync_segno = st.button(
+                segno_btn_label,
+                key=f"segno_{enrollment_id}",
+                disabled=segno_synced,
+                use_container_width=True,
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col3:
             has_pdf = any(d.get("doc_type") == "signature" for d in docs)
             st.markdown('<div class="pdf-btn">', unsafe_allow_html=True)
             send_pdf = st.button(
@@ -1140,7 +856,7 @@ def render_record_card(record: Dict[str, Any]) -> None:
             )
             st.markdown("</div>", unsafe_allow_html=True)
 
-        with col3:
+        with col4:
             st.markdown('<div class="notify-btn">', unsafe_allow_html=True)
             notify = st.button(
                 "📧 Notify",
@@ -1149,7 +865,7 @@ def render_record_card(record: Dict[str, Any]) -> None:
             )
             st.markdown("</div>", unsafe_allow_html=True)
 
-        with col4:
+        with col5:
             st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
             delete = st.button(
                 "🗑️ Delete",
@@ -1157,8 +873,6 @@ def render_record_card(record: Dict[str, Any]) -> None:
                 use_container_width=True,
             )
             st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)  # Close actions-flex
 
         if not is_validated:
             st.markdown(
@@ -1196,7 +910,7 @@ def render_record_card(record: Dict[str, Any]) -> None:
                 if settings.get("approval", {}).get("enabled"):
                     _send_approval_notification(raw, enrollment_id)
 
-                st.success("✅ Enrollment approved and synced to dashboard!")
+                st.success("Enrollment approved and synced to dashboard!")
                 st.rerun()
             elif status_code == 207:
                 try:
@@ -1235,11 +949,11 @@ def render_record_card(record: Dict[str, Any]) -> None:
                             True,
                             "System - HR Email Sent",
                         )
-                        st.success(f"✅ Signed policy form sent to {hr_email}!")
+                        st.success(f"Signed policy form sent to {hr_email}!")
                         st.rerun()
                     else:
                         st.error(
-                            f"❌ Error: {result.get('error', 'Unknown error')}")
+                            f"Error: {result.get('error', 'Unknown error')}")
                 else:
                     st.warning("PDF file not found")
             else:
@@ -1249,66 +963,37 @@ def render_record_card(record: Dict[str, Any]) -> None:
         if notify:
             result = _send_approval_notification(raw, enrollment_id)
             if result is True or (result and result.get("success")):
-                st.success("✅ Notification sent!")
+                st.success("Notification sent!")
             elif result and result.get("error"):
-                st.error(f"❌ Error: {result.get('error')}")
+                st.error(f"Error: {result.get('error')}")
             else:
                 st.warning(
                     "Notifications not configured. Adjust in Notification Settings tab."
                 )
 
-        # Handle Segno Sync (triggered from checklist)
-        if st.session_state.get(f'trigger_segno_sync_{enrollment_id}', False):
-            st.session_state[f'trigger_segno_sync_{enrollment_id}'] = False
-
-            with st.spinner("Syncing to Segno (may take up to 30 seconds)..."):
+        # Handle Sync to Segno
+        if sync_segno and not segno_synced:
+            with st.spinner("Syncing to Segno..."):
                 try:
                     import segno_client
+                    result = segno_client.sync_enrollment_by_id(enrollment_id)
 
-                    # Add timeout wrapper
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(
-                            segno_client.sync_enrollment_by_id, enrollment_id)
-                        try:
-                            result = future.result(
-                                timeout=35)  # 35s to allow 30s API timeout
-                        except concurrent.futures.TimeoutError:
-                            st.error("❌ Segno sync timed out after 35 seconds")
-                            st.info(
-                                "💡 The sync may still complete. Check Segno manually in a few minutes."
-                            )
-                            result = None
-
-                    if result and result.get("success"):
-                        segno_id = result.get("segno_record_id", "Unknown")
+                    if result.get("success"):
                         database.mark_checklist_task_by_key(
                             enrollment_id,
                             "segno_synced",
                             True,
-                            f"System - Segno Sync (ID: {segno_id})",
+                            "System - Segno Sync",
                         )
                         clear_enrollment_cache()
-                        st.success(f"✅ Segno enrollment created successfully!")
-                        if segno_id and segno_id != "Unknown":
-                            st.info(f"📋 Segno Record ID: `{segno_id}`")
+                        st.success("Segno enrollment created successfully!")
                         st.rerun()
-                    elif result:
-                        error_msg = result.get('error', 'Unknown error')
-                        error_details = result.get('details', '')
-                        st.error(f"❌ Segno sync failed: {error_msg}")
-                        if error_details:
-                            with st.expander("🔍 Error Details"):
-                                st.code(error_details)
-                        st.info(
-                            "💡 Check Segno credentials (SEGNO_USERNAME, SEGNO_PASSWORD) and try again"
+                    else:
+                        st.error(
+                            f"Segno sync failed: {result.get('error', 'Unknown error')}"
                         )
-
-                except ImportError:
-                    st.error("❌ Segno client module not found")
-                    st.info("💡 Contact IT support to install segno_client.py")
                 except Exception as e:
-                    st.error(f"❌ Unexpected error: {str(e)}")
-                    st.info("💡 Check application logs for details")
+                    st.error(f"Segno sync error: {str(e)}")
 
         # Handle Delete with session state confirmation
         delete_key = f"pending_delete_{enrollment_id}"
@@ -1537,7 +1222,3 @@ def main() -> None:
 
     with tab_settings:
         render_notification_settings_tab()
-
-
-if __name__ == "__main__":
-    main()

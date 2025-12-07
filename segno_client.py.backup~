@@ -1,47 +1,39 @@
 """
 Segno API client for syncing BYOV enrollments to Sears Drive Enrollment system.
 Handles authentication, session management, and enrollment submission.
-
-ENHANCEMENTS:
-- Improved record ID extraction (multiple fallback patterns)
-- Detailed error logging with response bodies
-- Better error messages for debugging
-- Enhanced success confirmation
 """
 import os
-import re
 import requests
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-SEGNO_BASE_URL = os.environ.get("SEGNO_BASE_URL",
-                                "https://workflow.segnosystems.com/")
+SEGNO_BASE_URL = os.environ.get("SEGNO_BASE_URL", "https://workflow.segnosystems.com/")
 SEGNO_USERNAME = os.environ.get("SEGNO_USERNAME", "")
 SEGNO_PASSWORD = os.environ.get("SEGNO_PASSWORD", "")
 
-
 class SegnoClient:
     """Client for interacting with Segno workflow system."""
-
+    
     def __init__(self):
         self.base_url = SEGNO_BASE_URL.rstrip("/")
         self.username = SEGNO_USERNAME
         self.password = SEGNO_PASSWORD
         self.session = requests.Session()
         self.authenticated = False
-
+    
     def login(self) -> bool:
         """Authenticate with Segno and store session cookie."""
         if not self.username or not self.password:
             print("[Segno] Missing SEGNO_USERNAME or SEGNO_PASSWORD")
             return False
-
+        
         try:
             # First, get the login page to establish a session
             self.session.get(
                 f"{self.base_url}/index.php?module=Users&action=Login",
-                timeout=30)
-
+                timeout=30
+            )
+            
             login_data = {
                 "module": "Users",
                 "action": "Authenticate",
@@ -50,71 +42,62 @@ class SegnoClient:
                 "user_name": self.username,
                 "user_password": self.password,
             }
-
+            
             response = self.session.post(
                 f"{self.base_url}/index.php",
                 data=login_data,
                 headers={
-                    "Content-Type":
-                    "application/x-www-form-urlencoded",
-                    "Origin":
-                    self.base_url,
-                    "Referer":
-                    f"{self.base_url}/index.php?module=Users&action=Login",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Origin": self.base_url,
+                    "Referer": f"{self.base_url}/index.php?module=Users&action=Login",
                 },
                 timeout=30,
-                allow_redirects=True)
-
+                allow_redirects=True
+            )
+            
             # Debug: print cookies
             cookies = dict(self.session.cookies)
             print(f"[Segno] Cookies after login: {list(cookies.keys())}")
-
+            
             # Check for successful login indicators
             if response.status_code == 200:
                 # Check if we're NOT on a login page
                 if "action=Login" not in response.url or "module=Home" in response.url:
                     self.authenticated = True
-                    print(
-                        f"[Segno] Login successful, redirected to: {response.url[:80]}"
-                    )
+                    print(f"[Segno] Login successful, redirected to: {response.url[:80]}")
                     return True
                 # Check page content for login success
-                if "logout" in response.text.lower(
-                ) or "dashboard" in response.text.lower():
+                if "logout" in response.text.lower() or "dashboard" in response.text.lower():
                     self.authenticated = True
-                    print(
-                        "[Segno] Login successful (found dashboard/logout in page)"
-                    )
+                    print("[Segno] Login successful (found dashboard/logout in page)")
                     return True
                 # If we got PHPSESSID cookie, assume success
                 if "PHPSESSID" in cookies:
                     self.authenticated = True
-                    print(
-                        "[Segno] Login response received with session cookie")
+                    print("[Segno] Login response received with session cookie")
                     return True
-
-                print(
-                    f"[Segno] Login may have failed, URL: {response.url[:80]}")
+                    
+                print(f"[Segno] Login may have failed, URL: {response.url[:80]}")
                 return False
-
+            
             print(f"[Segno] Login failed with status {response.status_code}")
             return False
-
+            
         except Exception as e:
             print(f"[Segno] Login error: {e}")
             return False
-
+    
     def _ensure_authenticated(self) -> bool:
         """Ensure we have a valid session, re-login if needed."""
         if not self.authenticated:
             return self.login()
         return True
-
+    
     def _format_date(self, date_str: Optional[str]) -> str:
         """Convert date string to MM/DD/YYYY format for Segno."""
         if not date_str:
             return ""
-
+        
         try:
             for fmt in ["%Y-%m-%d", "%m/%d/%Y", "%m-%d-%Y", "%d/%m/%Y"]:
                 try:
@@ -125,7 +108,7 @@ class SegnoClient:
             return date_str
         except Exception:
             return date_str or ""
-
+    
     def _map_industries_to_flags(self, industries: Any) -> Dict[str, str]:
         """Map our industry list to Segno product flags."""
         flags = {
@@ -140,17 +123,17 @@ class SegnoClient:
             "pmt": "0",
             "apt": "0",
         }
-
+        
         if not industries:
             return flags
-
+        
         if isinstance(industries, str):
             try:
                 import json
                 industries = json.loads(industries)
             except Exception:
                 industries = [industries]
-
+        
         industry_map = {
             "cooking": "cook",
             "cook": "cook",
@@ -174,7 +157,7 @@ class SegnoClient:
             "apt": "apt",
             "appliance": "apt",
         }
-
+        
         for industry in industries:
             if isinstance(industry, str):
                 key = industry.lower().strip()
@@ -182,69 +165,10 @@ class SegnoClient:
                     flags[industry_map[key]] = "1"
                 elif key in flags:
                     flags[key] = "1"
-
+        
         return flags
-
-    def _extract_record_id(self, response) -> Optional[str]:
-        """
-        Try multiple methods to extract Segno record ID from response.
-        Enhanced with multiple fallback patterns.
-        """
-        segno_id = None
-
-        # Method 1: URL parameters
-        if "record=" in response.url:
-            match = re.search(r'record=([a-f0-9-]{8,})', response.url)
-            if match:
-                segno_id = match.group(1)
-                print(f"[Segno] Record ID extracted from URL: {segno_id}")
-                return segno_id
-
-        # Method 2: Try to parse as JSON (some APIs return JSON)
-        try:
-            data = response.json()
-            if 'record_id' in data or 'id' in data:
-                segno_id = data.get('record_id') or data.get('id')
-                print(f"[Segno] Record ID extracted from JSON: {segno_id}")
-                return segno_id
-        except Exception:
-            pass
-
-        # Method 3: Response body HTML/text patterns (multiple patterns)
-        patterns = [
-            r'record["\s:=]+([a-f0-9-]{36})',  # Standard UUID
-            r'id["\s:=]+([a-f0-9-]{36})',
-            r'<input[^>]+name=["\']record["\'][^>]+value=["\']([a-f0-9-]+)["\']',
-            r'record=([a-f0-9-]{8,})',  # Shorter IDs
-            r'DetailView[?&]record=([a-f0-9-]{8,})',  # In DetailView URLs
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, response.text)
-            if match:
-                segno_id = match.group(1)
-                print(
-                    f"[Segno] Record ID extracted with pattern '{pattern[:30]}...': {segno_id}"
-                )
-                return segno_id
-
-        # Method 4: Check for redirect location header
-        if 'Location' in response.headers:
-            location = response.headers['Location']
-            match = re.search(r'record=([a-f0-9-]{8,})', location)
-            if match:
-                segno_id = match.group(1)
-                print(
-                    f"[Segno] Record ID extracted from Location header: {segno_id}"
-                )
-                return segno_id
-
-        print("[Segno] Warning: Could not extract record ID from response")
-        return segno_id
-
-    def submit_enrollment(self,
-                          enrollment: Dict[str, Any],
-                          retry_count: int = 0) -> Dict[str, Any]:
+    
+    def submit_enrollment(self, enrollment: Dict[str, Any], retry_count: int = 0) -> Dict[str, Any]:
         """
         Submit an enrollment to Segno Sears_Drive_Enrolment module.
         
@@ -253,119 +177,74 @@ class SegnoClient:
             retry_count: Internal counter to prevent infinite retries
             
         Returns:
-            dict with success, status_code, error, details, segno_record_id
+            dict with success, status_code, error, segno_record_id
         """
         if not self._ensure_authenticated():
             return {
                 "success": False,
                 "status_code": 401,
                 "error": "Failed to authenticate with Segno",
-                "details":
-                "Check SEGNO_USERNAME and SEGNO_PASSWORD environment variables",
                 "segno_record_id": None
             }
-
+        
         try:
             industry_flags = self._map_industries_to_flags(
-                enrollment.get("industries") or enrollment.get("industry"))
-
+                enrollment.get("industries") or enrollment.get("industry")
+            )
+            
             today = datetime.now().strftime("%m/%d/%Y")
-
+            
             # Map employment status to Segno enrollment type
             is_new_hire = enrollment.get("is_new_hire", False)
             enrolment_type = "new" if is_new_hire else "existing"
-
+            
             form_data = {
-                "module":
-                "Sears_Drive_Enrolment",
-                "record":
-                "",
-                "isDuplicate":
-                "false",
-                "action":
-                "Submit",
-                "return_module":
-                "Sears_Drive_Enrolment",
-                "return_action":
-                "DetailView",
-                "return_id":
-                "",
-                "module_tab":
-                "",
-                "contact_role":
-                "",
-                "relate_to":
-                "Sears_Drive_Enrolment",
-                "relate_id":
-                "",
-                "offset":
-                "1",
-                "associate":
-                enrollment.get("full_name", ""),
-                "tech_id":
-                enrollment.get("tech_id", ""),
-                "district":
-                enrollment.get("district", ""),
-                "phone":
-                enrollment.get("phone", ""),
-                "email":
-                enrollment.get("email", ""),
-                "year":
-                str(enrollment.get("year", "")),
-                "make":
-                enrollment.get("make", ""),
-                "model":
-                enrollment.get("model", ""),
-                "vin":
-                enrollment.get("vin", ""),
-                "insurance_exp":
-                self._format_date(enrollment.get("insurance_exp")),
-                "registration_exp":
-                self._format_date(enrollment.get("registration_exp")),
-                "enrolment_type":
-                enrolment_type,
-                "start_date":
-                today,
-                "notes":
-                "",
-                "reffered_by":
-                enrollment.get("refered_by") or enrollment.get("referred_by")
-                or "Tyler Morgan",
-                "mileage_rate":
-                "0.57",
-                "cook":
-                industry_flags.get("cook", "0"),
-                "dish":
-                industry_flags.get("dish", "0"),
-                "mw":
-                industry_flags.get("mw", "0"),
-                "wh":
-                industry_flags.get("wh", "0"),
-                "hvac":
-                industry_flags.get("hvac", "0"),
-                "ref":
-                industry_flags.get("ref", "0"),
-                "l":
-                industry_flags.get("l", "0"),
-                "lg":
-                industry_flags.get("lg", "0"),
-                "pmt":
-                industry_flags.get("pmt", "0"),
-                "apt":
-                industry_flags.get("apt", "0"),
+                "module": "Sears_Drive_Enrolment",
+                "record": "",
+                "isDuplicate": "false",
+                "action": "Submit",
+                "return_module": "Sears_Drive_Enrolment",
+                "return_action": "DetailView",
+                "return_id": "",
+                "module_tab": "",
+                "contact_role": "",
+                "relate_to": "Sears_Drive_Enrolment",
+                "relate_id": "",
+                "offset": "1",
+                "associate": enrollment.get("full_name", ""),
+                "user_id_c": enrollment.get("tech_id", ""),
+                "enrolment_type": enrolment_type,
+                "enrolment_status": "enrolled",
+                "reason_for_leaving": "",
+                "vehicle_year": str(enrollment.get("year", "")),
+                "vehicle_make": enrollment.get("make", ""),
+                "vehicle_model": enrollment.get("model", ""),
+                "vehicle_cargo": "20",
+                "insurance_expiration_date": self._format_date(enrollment.get("insurance_exp")),
+                "registration_expiration_date": self._format_date(enrollment.get("registration_exp")),
+                "start_date": today,
+                "notes": "",
+                "reffered_by": enrollment.get("refered_by") or enrollment.get("referred_by") or "Tyler Morgan",
+                "mileage_rate": "0.57",
+                "cook": industry_flags.get("cook", "0"),
+                "dish": industry_flags.get("dish", "0"),
+                "mw": industry_flags.get("mw", "0"),
+                "wh": industry_flags.get("wh", "0"),
+                "hvac": industry_flags.get("hvac", "0"),
+                "ref": industry_flags.get("ref", "0"),
+                "l": industry_flags.get("l", "0"),
+                "lg": industry_flags.get("lg", "0"),
+                "pmt": industry_flags.get("pmt", "0"),
+                "apt": industry_flags.get("apt", "0"),
             }
-
-            print(
-                f"[Segno] Submitting enrollment for {enrollment.get('full_name', 'Unknown')}"
-            )
-
+            
+            print(f"[Segno] Submitting enrollment for {enrollment.get('full_name', 'Unknown')}")
+            
             # Go directly to the EditView page (create new enrollment form)
             edit_url = f"{self.base_url}/index.php?module=Sears_Drive_Enrolment&action=EditView&return_module=Sears_Drive_Enrolment&return_action=DetailView"
             edit_response = self.session.get(edit_url, timeout=30)
-            print(
-                f"[Segno] EditView response: {edit_response.status_code}, URL: {edit_response.url[:80]}"
-            )
-
+            print(f"[Segno] EditView response: {edit_response.status_code}, URL: {edit_response.url[:80]}")
+            
             # Check if EditView redirected to login
             if "action=Login" in edit_response.url:
                 print("[Segno] EditView redirected to login - session invalid")
@@ -376,59 +255,57 @@ class SegnoClient:
                     "success": False,
                     "status_code": 401,
                     "error": "Session expired during EditView",
-                    "details": "Re-authentication failed",
                     "segno_record_id": None
                 }
-
-            # Submit the form with proper headers
+            
+            # Step 4: Submit the form with proper headers (try Submit first)
             submit_headers = {
                 "Content-Type": "application/x-www-form-urlencoded",
                 "Origin": self.base_url,
                 "Referer": edit_url,
             }
-
-            response = self.session.post(f"{self.base_url}/index.php",
-                                         data=form_data,
-                                         headers=submit_headers,
-                                         timeout=30,
-                                         allow_redirects=True)
-
-            print(
-                f"[Segno] Submit response: {response.status_code}, URL: {response.url[:100]}"
+            
+            response = self.session.post(
+                f"{self.base_url}/index.php",
+                data=form_data,
+                headers=submit_headers,
+                timeout=30,
+                allow_redirects=True
             )
-
+            
+            print(f"[Segno] Submit response: {response.status_code}, URL: {response.url[:100]}")
+            
             # Check for session expiration or failed submit
-            is_login_redirect = (response.status_code == 401
-                                 or ("action=Login" in response.url
-                                     and "module=Users" in response.url))
-
+            is_login_redirect = (
+                response.status_code == 401 or 
+                ("action=Login" in response.url and "module=Users" in response.url)
+            )
+            
             # If Submit failed, try Save as fallback
             if is_login_redirect:
-                print(
-                    "[Segno] Submit failed, trying Save action as fallback...")
+                print("[Segno] Submit failed, trying Save action as fallback...")
                 form_data["action"] = "Save"
-
+                
                 # Re-visit EditView before Save attempt
                 self.session.get(edit_url, timeout=30)
-
-                response = self.session.post(f"{self.base_url}/index.php",
-                                             data=form_data,
-                                             headers=submit_headers,
-                                             timeout=30,
-                                             allow_redirects=True)
-                print(
-                    f"[Segno] Save response: {response.status_code}, URL: {response.url[:100]}"
+                
+                response = self.session.post(
+                    f"{self.base_url}/index.php",
+                    data=form_data,
+                    headers=submit_headers,
+                    timeout=30,
+                    allow_redirects=True
                 )
-
+                print(f"[Segno] Save response: {response.status_code}, URL: {response.url[:100]}")
+                
                 # Check again for login redirect
-                is_login_redirect = (response.status_code == 401
-                                     or ("action=Login" in response.url
-                                         and "module=Users" in response.url))
-
-            if is_login_redirect and retry_count < 1:
-                print(
-                    "[Segno] Session expired, re-authenticating (attempt 1)..."
+                is_login_redirect = (
+                    response.status_code == 401 or 
+                    ("action=Login" in response.url and "module=Users" in response.url)
                 )
+            
+            if is_login_redirect and retry_count < 1:
+                print("[Segno] Session expired, re-authenticating (attempt 1)...")
                 self.authenticated = False
                 if self.login():
                     return self.submit_enrollment(enrollment, retry_count + 1)
@@ -436,9 +313,7 @@ class SegnoClient:
                     return {
                         "success": False,
                         "status_code": 401,
-                        "error":
-                        "Session expired and re-authentication failed",
-                        "details": "Check SEGNO_USERNAME and SEGNO_PASSWORD",
+                        "error": "Session expired and re-authentication failed",
                         "segno_record_id": None
                     }
             elif is_login_redirect:
@@ -446,63 +321,57 @@ class SegnoClient:
                     "success": False,
                     "status_code": 401,
                     "error": "Authentication failed after retry",
-                    "details": "Verify Segno credentials",
                     "segno_record_id": None
                 }
-
-            # Enhanced success handling
+            
             if response.status_code == 200:
-                segno_id = self._extract_record_id(response)
-
-                print(
-                    f"[Segno] Enrollment submitted successfully. Record ID: {segno_id or 'Not found'}"
-                )
+                segno_id = None
+                import re
+                # Try to extract record ID from URL
+                if "record=" in response.url:
+                    match = re.search(r'record=([a-f0-9-]+)', response.url)
+                    if match:
+                        segno_id = match.group(1)
+                
+                # Also check response body for record ID
+                if not segno_id:
+                    match = re.search(r'record["\s:=]+([a-f0-9-]{36})', response.text)
+                    if match:
+                        segno_id = match.group(1)
+                
+                print(f"[Segno] Enrollment submitted successfully. Record ID: {segno_id}")
                 return {
                     "success": True,
                     "status_code": 200,
                     "error": None,
-                    "details": None,
                     "segno_record_id": segno_id
                 }
-
-            # Enhanced error response with details
-            print(f"[Segno] Non-200 response:")
-            print(f"  Status: {response.status_code}")
-            print(f"  URL: {response.url}")
-            print(f"  Body (first 500 chars): {response.text[:500]}")
-
+            
             return {
                 "success": False,
                 "status_code": response.status_code,
-                "error": f"HTTP {response.status_code}",
-                "details":
-                response.text[:200],  # First 200 chars for debugging
+                "error": f"Unexpected response status: {response.status_code}",
                 "segno_record_id": None
             }
-
+            
         except requests.Timeout:
             return {
                 "success": False,
                 "status_code": 408,
-                "error": "Request timed out after 30 seconds",
-                "details": "Segno server did not respond in time",
+                "error": "Request timed out",
                 "segno_record_id": None
             }
         except Exception as e:
             print(f"[Segno] Submit error: {e}")
-            import traceback
-            traceback.print_exc()
             return {
                 "success": False,
                 "status_code": 500,
                 "error": str(e),
-                "details": traceback.format_exc()[:200],
                 "segno_record_id": None
             }
 
 
 _client_instance: Optional[SegnoClient] = None
-
 
 def get_segno_client() -> SegnoClient:
     """Get or create the singleton Segno client instance."""
@@ -520,7 +389,7 @@ def submit_enrollment_to_segno(enrollment: Dict[str, Any]) -> Dict[str, Any]:
         enrollment: Full enrollment record from our database
         
     Returns:
-        dict with success, status_code, error, details, segno_record_id
+        dict with success, status_code, error, segno_record_id
     """
     client = get_segno_client()
     return client.submit_enrollment(enrollment)
@@ -535,42 +404,34 @@ def sync_enrollment_by_id(enrollment_id: int) -> Dict[str, Any]:
         enrollment_id: Our internal enrollment ID
         
     Returns:
-        dict with success, status_code, error, details, segno_record_id
+        dict with success, status_code, error, segno_record_id
     """
     try:
         import database_pg as database
-
+        
         enrollment = database.get_enrollment(enrollment_id)
         if not enrollment:
             return {
                 "success": False,
                 "status_code": 404,
-                "error": f"Enrollment {enrollment_id} not found in database",
-                "details": "Check enrollment ID",
+                "error": f"Enrollment {enrollment_id} not found",
                 "segno_record_id": None
             }
-
-        print(f"[Segno] Starting sync for enrollment {enrollment_id}")
+        
         result = submit_enrollment_to_segno(enrollment)
-
+        
         if result["success"]:
-            database.update_segno_status(enrollment_id, "synced",
-                                         result.get("segno_record_id"))
-            print(f"[Segno] Sync successful, updated database status")
+            database.update_segno_status(enrollment_id, "synced", result.get("segno_record_id"))
         else:
             database.update_segno_status(enrollment_id, "failed", None)
-            print(f"[Segno] Sync failed: {result.get('error')}")
-
+        
         return result
-
+        
     except Exception as e:
         print(f"[Segno] sync_enrollment_by_id error: {e}")
-        import traceback
-        traceback.print_exc()
         return {
             "success": False,
             "status_code": 500,
             "error": str(e),
-            "details": traceback.format_exc()[:200],
             "segno_record_id": None
         }
