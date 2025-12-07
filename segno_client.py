@@ -240,10 +240,34 @@ class SegnoClient:
             
             print(f"[Segno] Submitting enrollment for {enrollment.get('full_name', 'Unknown')}")
             
-            # First visit the EditView page to establish session state (like browser does)
+            # Step 1: Visit the module list page first (like clicking on the module in navigation)
+            list_url = f"{self.base_url}/index.php?module=Sears_Drive_Enrolment&action=index"
+            list_response = self.session.get(list_url, timeout=30)
+            print(f"[Segno] Module list response: {list_response.status_code}, URL: {list_response.url[:80]}")
+            
+            # Check if list page redirected to login
+            if "action=Login" in list_response.url:
+                print("[Segno] List page redirected to login - session invalid")
+                self.authenticated = False
+                if retry_count < 1 and self.login():
+                    return self.submit_enrollment(enrollment, retry_count + 1)
+                return {
+                    "success": False,
+                    "status_code": 401,
+                    "error": "Session expired on module page",
+                    "segno_record_id": None
+                }
+            
+            # Step 2: Click "Create" to go to the EditView page
             edit_url = f"{self.base_url}/index.php?module=Sears_Drive_Enrolment&action=EditView&return_module=Sears_Drive_Enrolment&return_action=DetailView"
-            edit_response = self.session.get(edit_url, timeout=30)
-            print(f"[Segno] EditView response: {edit_response.status_code}")
+            edit_response = self.session.get(
+                edit_url, 
+                timeout=30,
+                headers={
+                    "Referer": list_url,
+                }
+            )
+            print(f"[Segno] EditView response: {edit_response.status_code}, URL: {edit_response.url[:80]}")
             
             # Check if EditView redirected to login
             if "action=Login" in edit_response.url:
