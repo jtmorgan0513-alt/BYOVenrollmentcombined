@@ -257,7 +257,7 @@ def save_uploaded_files(uploaded_files, folder_path: str, prefix: str) -> list:
 
 def generate_signed_pdf(template_path: str, signature_image, output_path: str,
                         sig_x: int = 73, sig_y: int = 442, date_x: int = 320, date_y: int = 442,
-                        employee_name: str = None, tech_id: str = None,
+                        employee_name: str = '', tech_id: str = '',
                         name_x: int = 260, name_y: int = 547, tech_id_x: int = 261, tech_id_y: int = 533,
                         sig_width: int = 160, sig_height: int = 28) -> bool:
     """Generate a PDF with signature, date, name, and tech ID overlay on page 6 (index 5)."""
@@ -476,10 +476,11 @@ def wizard_step_1():
         autocomplete="off"
     )
     
+    saved_state = data.get('state', '')
     state = st.selectbox(
         "State", 
         [""] + US_STATES,
-        index=(US_STATES.index(data.get('state')) + 1) if data.get('state') in US_STATES else 0,
+        index=(US_STATES.index(saved_state) + 1) if saved_state in US_STATES else 0,
         key="wiz_state"
     )
     
@@ -756,6 +757,9 @@ def wizard_step_3():
     
     st.markdown("---")
     
+    has_signature = False
+    signature_data = None
+    
     if is_docusign_state:
         st.info("""
         **California Enrollees:** Due to state regulations, you will receive a DocuSign 
@@ -767,8 +771,6 @@ def wizard_step_3():
             "I have read and agree to the BYOV Policy terms. I understand I will receive a DocuSign email to complete my signature.",
             key="wiz_policy_ack"
         )
-        
-        signature_data = None
     else:
         st.subheader("Electronic Signature")
         st.caption("Please sign in the box below using your mouse or finger.")
@@ -786,7 +788,6 @@ def wizard_step_3():
         
         signature_data = canvas_result.image_data if canvas_result.image_data is not None else None
         
-        has_signature = False
         if signature_data is not None:
             if signature_data.sum() > 0:
                 has_signature = True
@@ -911,9 +912,9 @@ def wizard_step_4():
                         
                         success = generate_signed_pdf(
                             template_file,
-                            data.get('signature_image'),
+                            data.get('signature_image', ''),
                             signature_pdf_path,
-                            employee_name=data.get('full_name'),
+                            employee_name=data.get('full_name', ''),
                             tech_id=tech_id
                         )
                         
