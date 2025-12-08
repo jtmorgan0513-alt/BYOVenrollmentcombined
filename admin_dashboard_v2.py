@@ -321,36 +321,40 @@ def inject_admin_theme_css() -> None:
         /* Stats Bar */
         .stats-bar {
           display: grid;
-          grid-template-columns: repeat(5, 1fr);
+          grid-template-columns: 2fr 1.2fr 1.2fr 0.8fr 1fr;
           background: #f9fafb;
           border-bottom: 1px solid #e5e7eb;
+          overflow-x: auto;
         }
 
         .stat-item {
-          padding: 0.625rem;
+          padding: 0.5rem 0.375rem;
           text-align: center;
           border-right: 1px solid #e5e7eb;
+          min-width: 0;
         }
 
         .stat-item:last-child { border-right: none; }
 
         .stat-label {
-          font-size: 0.65rem;
+          font-size: 0.6rem;
           color: #6b7280;
           margin-bottom: 0.25rem;
           text-transform: uppercase;
-          letter-spacing: 0.025em;
+          letter-spacing: 0.02em;
           font-weight: 600;
+          white-space: nowrap;
         }
 
         .stat-value {
-          font-size: 0.75rem;
+          font-size: 0.7rem;
           font-weight: 700;
+          word-break: break-all;
         }
 
         .stat-value.green { color: #16a34a; }
         .stat-value.red { color: #ef4444; }
-        .stat-value.mono { font-family: monospace; font-size: 0.7rem; }
+        .stat-value.mono { font-family: monospace; font-size: 0.65rem; }
 
         /* Info Grid */
         .info-grid {
