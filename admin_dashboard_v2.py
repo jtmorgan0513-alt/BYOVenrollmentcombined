@@ -880,8 +880,6 @@ def render_record_card(record: Dict[str, Any]) -> None:
                 st.markdown("##### Technician Info")
                 st.write(f"**Name:** {raw.get('full_name', '-')}")
                 st.write(f"**Tech ID:** {raw.get('tech_id', '-')}")
-                st.write(f"**Email:** {raw.get('email', '-')}")
-                st.write(f"**Phone:** {raw.get('phone', '-')}")
                 st.write(f"**Referred By:** {raw.get('referred_by', '-')}")
 
             with col2:

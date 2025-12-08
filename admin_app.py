@@ -75,43 +75,46 @@ def get_logo_base64():
     return None
 
 
+def inject_login_css():
+    """Inject minimal CSS for login page that resets any dashboard styles."""
+    st.markdown("""
+    <style>
+    .site-header, .record-card-container, .stats-bar, .card-header, .pending-badge {
+        display: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
 def render_admin_login():
     """Render the admin login page with single-click form submission."""
-    # Get logo once
+    inject_login_css()
+    
     logo_b64 = get_logo_base64()
 
-    col_left, col_center, col_right = st.columns([1, 2, 1])
-    with col_center:
-        # Embed logo as base64 to prevent flash
-        if logo_b64:
-            st.markdown(
-                f'<div style="text-align:center; margin-bottom: 1.5rem;"><img src="data:image/png;base64,{logo_b64}" width="280" alt="Sears Logo"/></div>',
-                unsafe_allow_html=True)
+    st.markdown("## Admin Login")
+    st.markdown("Please enter your credentials to access the Admin Control Center.")
+    
+    st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
 
-        st.markdown("### Admin Login")
-        st.markdown(
-            "Please enter your credentials to access the Admin Control Center."
-        )
+    with st.form("login_form", clear_on_submit=False):
+        username = st.text_input("Username", autocomplete="username")
+        password = st.text_input("Password",
+                                 type="password",
+                                 autocomplete="current-password")
+        submitted = st.form_submit_button("Login",
+                                          use_container_width=True,
+                                          type="primary")
 
-        # Use form for single-click submission
-        with st.form("login_form", clear_on_submit=False):
-            username = st.text_input("Username", autocomplete="username")
-            password = st.text_input("Password",
-                                     type="password",
-                                     autocomplete="current-password")
-            submitted = st.form_submit_button("Login",
-                                              use_container_width=True,
-                                              type="primary")
+        if submitted:
+            admin_user = os.environ.get("ADMIN_USERNAME", "admin")
+            admin_pass = os.environ.get("ADMIN_PASSWORD", "admin123")
 
-            if submitted:
-                admin_user = os.environ.get("ADMIN_USERNAME", "admin")
-                admin_pass = os.environ.get("ADMIN_PASSWORD", "admin123")
-
-                if username == admin_user and password == admin_pass:
-                    st.session_state.admin_authenticated = True
-                    st.rerun()
-                else:
-                    st.error("Invalid username or password")
+            if username == admin_user and password == admin_pass:
+                st.session_state.admin_authenticated = True
+                st.rerun()
+            else:
+                st.error("Invalid username or password")
 
 
 def render_admin_dashboard():
