@@ -574,25 +574,6 @@ async function loadFullApp() {
 
     const newHttpServer = http.createServer(app);
 
-    // Add error handlers to proxies for WebSocket errors
-    enrollProxy.on('error', (err, req, socket) => {
-      if (err.code !== 'ECONNRESET' && err.code !== 'EPIPE' && err.code !== 'ERR_STREAM_WRITE_AFTER_END') {
-        log(`Enrollment proxy error: ${err.code || err.message}`, 'ws');
-      }
-      if (socket && !socket.destroyed) {
-        safeSocketDestroy(socket);
-      }
-    });
-    
-    adminProxy.on('error', (err, req, socket) => {
-      if (err.code !== 'ECONNRESET' && err.code !== 'EPIPE' && err.code !== 'ERR_STREAM_WRITE_AFTER_END') {
-        log(`Admin proxy error: ${err.code || err.message}`, 'ws');
-      }
-      if (socket && !socket.destroyed) {
-        safeSocketDestroy(socket);
-      }
-    });
-
     newHttpServer.on('upgrade', (req, socket, head) => {
       const url = req.url || '';
       log(`WebSocket upgrade: ${url}`, 'ws');
