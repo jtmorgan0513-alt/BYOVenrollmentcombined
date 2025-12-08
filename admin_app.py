@@ -107,7 +107,11 @@ def main():
     if 'admin_authenticated' not in st.session_state:
         st.session_state.admin_authenticated = False
 
-    if st.session_state.admin_authenticated:
+    is_authenticated = st.session_state.admin_authenticated
+    
+    logging.info(f"Admin authentication state: {is_authenticated}")
+    
+    if is_authenticated:
         render_admin_dashboard()
     else:
         render_admin_login()
