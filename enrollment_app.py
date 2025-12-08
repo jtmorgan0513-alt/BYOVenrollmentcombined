@@ -761,13 +761,37 @@ def wizard_step_3():
         with open(template_file, "rb") as f:
             pdf_bytes = f.read()
         
-        b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-        pdf_display = f'''
-        <iframe src="data:application/pdf;base64,{b64_pdf}" 
-                width="100%" height="500px" type="application/pdf">
-        </iframe>
-        '''
-        st.markdown(pdf_display, unsafe_allow_html=True)
+        try:
+            import fitz
+            import io
+            
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            num_pages = len(doc)
+            
+            st.caption(f"Policy Document ({num_pages} pages) - Scroll to view all pages")
+            
+            for i in range(num_pages):
+                page = doc[i]
+                mat = fitz.Matrix(2.0, 2.0)
+                pix = page.get_pixmap(matrix=mat)
+                img_bytes = pix.tobytes("png")
+                st.image(img_bytes, caption=f"Page {i+1} of {num_pages}", use_container_width=True)
+            
+            doc.close()
+            
+        except Exception as e:
+            b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+            st.markdown(f'''
+            <div style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                <iframe src="data:application/pdf;base64,{b64_pdf}" 
+                        width="100%" height="600px" style="border: none;">
+                </iframe>
+            </div>
+            <p style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;">
+                If the document doesn't display properly, please use the download button below.
+            </p>
+            ''', unsafe_allow_html=True)
+            logging.error(f"PDF rendering error: {e}")
         
         st.download_button(
             label="📥 Download Policy PDF",
