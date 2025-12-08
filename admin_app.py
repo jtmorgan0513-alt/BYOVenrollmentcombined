@@ -2,29 +2,20 @@
 BYOV Admin Dashboard Application
 
 This is the admin control center for the BYOV (Bring Your Own Vehicle) program.
-It runs on port 8001 and handles admin login, enrollment management, and settings.
-
-Routes:
-- /admin - Admin login and dashboard
-
-UPDATES:
-- Single-click login using st.form()
-- Base64 embedded logo (no flash)
-- Clean session state management
+It runs on port 8080 and handles admin login, enrollment management, and settings.
 """
-import streamlit as st  # noqa: E402
+import streamlit as st
 
 st.set_page_config(page_title="BYOV Admin Dashboard",
                    page_icon="🔧",
                    layout="wide",
                    initial_sidebar_state="collapsed")
 
-import os  # noqa: E402
-import base64  # noqa: E402
-import logging  # noqa: E402
+import os
+import base64
+import logging
 
-import database_pg as database  # noqa: E402
-from admin_dashboard_v2 import main as render_new_admin_dashboard  # noqa: E402
+import database_pg as database
 
 
 def validate_environment():
@@ -62,40 +53,19 @@ def init_database():
     return True
 
 
-def get_logo_base64():
-    """Get logo as base64 string for embedding."""
-    logo_path = "static/sears_logo_brand.png"
-    if os.path.exists(logo_path):
-        try:
-            with open(logo_path, 'rb') as f:
-                return base64.b64encode(f.read()).decode()
-        except Exception as e:
-            logging.error(f"Failed to load logo: {e}")
-            return None
-    return None
-
-
-def inject_login_css():
-    """Inject minimal CSS for login page that resets any dashboard styles."""
+def render_admin_login():
+    """Render the admin login page with single-click form submission."""
     st.markdown("""
     <style>
-    .site-header, .record-card-container, .stats-bar, .card-header, .pending-badge {
+    .site-header, .record-card-container, .stats-bar, .card-header, 
+    .pending-badge, [data-testid="stExpander"] {
         display: none !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-
-def render_admin_login():
-    """Render the admin login page with single-click form submission."""
-    inject_login_css()
-    
-    logo_b64 = get_logo_base64()
-
     st.markdown("## Admin Login")
     st.markdown("Please enter your credentials to access the Admin Control Center.")
-    
-    st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
 
     with st.form("login_form", clear_on_submit=False):
         username = st.text_input("Username", autocomplete="username")
@@ -119,6 +89,8 @@ def render_admin_login():
 
 def render_admin_dashboard():
     """Render the admin control center dashboard with new card-based UI."""
+    from admin_dashboard_v2 import main as render_new_admin_dashboard
+    
     col1, col2 = st.columns([9, 1])
     with col2:
         if st.button("Logout", key="logout_button", help="Logout"):
@@ -135,11 +107,10 @@ def main():
     if 'admin_authenticated' not in st.session_state:
         st.session_state.admin_authenticated = False
 
-    if not st.session_state.admin_authenticated:
+    if st.session_state.admin_authenticated:
+        render_admin_dashboard()
+    else:
         render_admin_login()
-        return
-    
-    render_admin_dashboard()
 
 
 if __name__ == "__main__":
