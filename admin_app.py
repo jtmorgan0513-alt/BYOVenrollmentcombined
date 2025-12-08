@@ -107,14 +107,13 @@ def main():
     if 'admin_authenticated' not in st.session_state:
         st.session_state.admin_authenticated = False
 
-    is_authenticated = st.session_state.admin_authenticated
-    
-    logging.info(f"Admin authentication state: {is_authenticated}")
-    
-    if is_authenticated:
+    # Render only one view - use st.stop() to prevent any further rendering
+    if st.session_state.admin_authenticated:
         render_admin_dashboard()
+        st.stop()
     else:
         render_admin_login()
+        st.stop()
 
 
 if __name__ == "__main__":
