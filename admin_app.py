@@ -135,10 +135,11 @@ def main():
     if 'admin_authenticated' not in st.session_state:
         st.session_state.admin_authenticated = False
 
-    if st.session_state.admin_authenticated:
-        render_admin_dashboard()
-    else:
+    if not st.session_state.admin_authenticated:
         render_admin_login()
+        return
+    
+    render_admin_dashboard()
 
 
 if __name__ == "__main__":
