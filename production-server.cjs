@@ -272,7 +272,7 @@ const healthServer = http.createServer((req, res) => {
   res.end(loadingPage);
 });
 
-function waitForStreamlit(port, name, maxAttempts = 60, interval = 2000) {
+function waitForStreamlit(port, name, maxAttempts = 90, interval = 1000) {
   return new Promise((resolve) => {
     let attempts = 0;
     const check = () => {
@@ -286,7 +286,7 @@ function waitForStreamlit(port, name, maxAttempts = 60, interval = 2000) {
         }
       });
       req.on('error', () => retry());
-      req.setTimeout(5000, () => { req.destroy(); retry(); });
+      req.setTimeout(2000, () => { req.destroy(); retry(); });
     };
     const retry = () => {
       if (attempts >= maxAttempts) {
@@ -296,7 +296,7 @@ function waitForStreamlit(port, name, maxAttempts = 60, interval = 2000) {
         setTimeout(check, interval);
       }
     };
-    setTimeout(check, 3000);
+    setTimeout(check, 2000);
   });
 }
 
