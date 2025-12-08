@@ -614,13 +614,20 @@ def wizard_step_2():
             else:
                 st.warning("Enter a VIN first")
     
+    if 'wiz_year' not in st.session_state:
+        st.session_state.wiz_year = data.get('year', '')
+    if 'wiz_make' not in st.session_state:
+        st.session_state.wiz_make = data.get('make', '')
+    if 'wiz_model' not in st.session_state:
+        st.session_state.wiz_model = data.get('model', '')
+    
     col1, col2, col3 = st.columns(3)
     with col1:
-        year = st.text_input("Year", value=data.get('year', ''), key="wiz_year")
+        year = st.text_input("Year", key="wiz_year")
     with col2:
-        make = st.text_input("Make", value=data.get('make', ''), key="wiz_make")
+        make = st.text_input("Make", key="wiz_make")
     with col3:
-        model = st.text_input("Model", value=data.get('model', ''), key="wiz_model")
+        model = st.text_input("Model", key="wiz_model")
     
     st.markdown("---")
     st.subheader("Document Uploads")
@@ -990,7 +997,6 @@ def wizard_step_4():
                 show_money_rain()
                 
                 st.success("🎉 Enrollment submitted successfully!")
-                st.balloons()
                 
                 st.markdown("""
                 <div style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); 
@@ -1016,7 +1022,7 @@ def wizard_step_4():
                 else:
                     st.info("""
                     **Next Steps:**
-                    Your enrollment is now pending review. You will receive an email 
+                    Your enrollment is now pending review. You will receive a text message 
                     once your enrollment has been approved.
                     """)
                 
