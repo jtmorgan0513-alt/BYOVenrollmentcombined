@@ -539,10 +539,18 @@ async function loadFullApp() {
     const enrollProxy = createProxyMiddleware(createStreamlitProxyOptions(ENROLL_STREAMLIT_PORT, 'Enrollment'));
     const adminProxy = createProxyMiddleware(createStreamlitProxyOptions(ADMIN_STREAMLIT_PORT, 'Admin'));
     
-    // Mount proxies at their respective paths
-    // Streamlit apps are started with baseUrlPath matching these paths
-    app.use('/enroll', enrollProxy);
-    app.use('/admin', adminProxy);
+    // Route Streamlit apps - must match explicitly to prevent static file conflicts
+    // Use a route handler to forward the FULL original path to Streamlit (including /enroll or /admin prefix)
+    app.use('/enroll', (req, res, next) => {
+      // Reconstruct the full path since Express strips the mount point
+      req.url = '/enroll' + req.url;
+      enrollProxy(req, res, next);
+    });
+    app.use('/admin', (req, res, next) => {
+      // Reconstruct the full path since Express strips the mount point
+      req.url = '/admin' + req.url;
+      adminProxy(req, res, next);
+    });
 
     const distPath = path.resolve(process.cwd(), 'dist/public');
     if (fs.existsSync(distPath)) {
