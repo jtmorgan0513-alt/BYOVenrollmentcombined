@@ -82,7 +82,9 @@ let enrollStreamlitRestarts = 0;
 let adminStreamlitRestarts = 0;
 const MAX_STREAMLIT_RESTARTS = 5;
 const RESTART_COOLDOWN_MS = 10000;
-const PREWARM_INTERVAL_MS = 15000;
+const PREWARM_INTERVAL_MS = 10000; // More frequent pre-warming (10s)
+const ADMIN_STARTUP_MAX_ATTEMPTS = 120; // Admin gets more time (120 * 500ms = 60s)
+const ENROLL_STARTUP_MAX_ATTEMPTS = 90; // Enrollment gets 45s
 
 function log(message, source = 'production') {
   const time = new Date().toLocaleTimeString('en-US', {
@@ -207,7 +209,7 @@ const loadingPage = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="2">
+  <meta http-equiv="refresh" content="5">
   <title>BYOV - Starting...</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -305,21 +307,28 @@ function waitForStreamlit(port, name, basePath, maxAttempts = 60, interval = 500
   });
 }
 
+function pingStreamlit(port, basePath) {
+  const req = http.get(`http://127.0.0.1:${port}${basePath}/_stcore/health`, (res) => {
+    res.resume();
+  });
+  req.on('error', () => {});
+  req.setTimeout(5000, () => req.destroy());
+}
+
 function startPrewarmPing() {
+  // Initial burst of pings to fully prime both apps (especially admin)
+  log('Starting initial pre-warm burst for admin...');
+  for (let i = 0; i < 5; i++) {
+    setTimeout(() => {
+      pingStreamlit(ADMIN_STREAMLIT_PORT, '/admin');
+      pingStreamlit(ENROLL_STREAMLIT_PORT, '/enroll');
+    }, i * 1000); // Ping every second for 5 seconds
+  }
+  
+  // Then continue with regular interval pings
   setInterval(() => {
-    // Ping enrollment Streamlit (using correct baseUrlPath)
-    const enrollReq = http.get(`http://127.0.0.1:${ENROLL_STREAMLIT_PORT}/enroll/_stcore/health`, (res) => {
-      res.resume();
-    });
-    enrollReq.on('error', () => {});
-    enrollReq.setTimeout(5000, () => enrollReq.destroy());
-    
-    // Ping admin Streamlit (using correct baseUrlPath)
-    const adminReq = http.get(`http://127.0.0.1:${ADMIN_STREAMLIT_PORT}/admin/_stcore/health`, (res) => {
-      res.resume();
-    });
-    adminReq.on('error', () => {});
-    adminReq.setTimeout(5000, () => adminReq.destroy());
+    pingStreamlit(ENROLL_STREAMLIT_PORT, '/enroll');
+    pingStreamlit(ADMIN_STREAMLIT_PORT, '/admin');
   }, PREWARM_INTERVAL_MS);
   log(`Streamlit pre-warm ping started (every ${PREWARM_INTERVAL_MS/1000}s)`);
 }
@@ -329,8 +338,8 @@ healthServer.listen(port, '0.0.0.0', async () => {
   startEnrollStreamlit();
   startAdminStreamlit();
   await Promise.all([
-    waitForStreamlit(ENROLL_STREAMLIT_PORT, 'Enrollment', '/enroll'),
-    waitForStreamlit(ADMIN_STREAMLIT_PORT, 'Admin', '/admin')
+    waitForStreamlit(ENROLL_STREAMLIT_PORT, 'Enrollment', '/enroll', ENROLL_STARTUP_MAX_ATTEMPTS),
+    waitForStreamlit(ADMIN_STREAMLIT_PORT, 'Admin', '/admin', ADMIN_STARTUP_MAX_ATTEMPTS)
   ]);
   startPrewarmPing();
   loadFullApp();
@@ -479,7 +488,7 @@ async function loadFullApp() {
 <html>
 <head>
   <title>Loading...</title>
-  <meta http-equiv="refresh" content="2">
+  <meta http-equiv="refresh" content="5">
   <style>
     body { font-family: -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f8fafc; }
     .loading { text-align: center; }
