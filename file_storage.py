@@ -37,7 +37,7 @@ def _sign_url(bucket_name: str, object_name: str, method: str, ttl_sec: int = 90
         "bucket_name": bucket_name,
         "object_name": object_name,
         "method": method,
-        "expires_at": expires_at.isoformat() + "Z"
+        "expires_at": expires_at.strftime("%Y-%m-%dT%H:%M:%SZ")
     }
     
     try:

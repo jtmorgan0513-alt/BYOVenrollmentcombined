@@ -989,11 +989,21 @@ def wizard_step_4():
                     st.success("🎉 Enrollment submitted successfully!")
                     st.balloons()
                     
+                    st.markdown("""
+                    <div style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); 
+                                padding: 1.5rem; border-radius: 12px; text-align: center; margin: 1rem 0;">
+                        <h3 style="color: #2e7d32; margin: 0;">🚗 You're one step closer to transportation freedom!</h3>
+                        <p style="color: #388e3c; margin-top: 0.5rem; margin-bottom: 0;">
+                            Your BYOV enrollment has been received and is pending review.
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
                     if data.get('is_docusign_state'):
                         st.info("""
                         **Next Steps:**
-                        1. Check your email for a DocuSign request
-                        2. Sign the policy document electronically
+                        1. Look out for a **text message from Crystal Cash** with a DocuSign request
+                        2. Sign the policy document electronically via DocuSign
                         3. Wait for admin approval
                         """)
                     else:
