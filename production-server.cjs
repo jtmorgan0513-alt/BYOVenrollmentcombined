@@ -272,12 +272,13 @@ const healthServer = http.createServer((req, res) => {
   res.end(loadingPage);
 });
 
-function waitForStreamlit(port, name, maxAttempts = 90, interval = 1000) {
+function waitForStreamlit(port, name, basePath, maxAttempts = 90, interval = 1000) {
   return new Promise((resolve) => {
     let attempts = 0;
+    const healthPath = `${basePath}/_stcore/health`;
     const check = () => {
       attempts++;
-      const req = http.get(`http://127.0.0.1:${port}/_stcore/health`, (res) => {
+      const req = http.get(`http://127.0.0.1:${port}${healthPath}`, (res) => {
         if (res.statusCode === 200) {
           log(`${name} Streamlit is ready on port ${port}`);
           resolve(true);
@@ -302,15 +303,15 @@ function waitForStreamlit(port, name, maxAttempts = 90, interval = 1000) {
 
 function startPrewarmPing() {
   setInterval(() => {
-    // Ping enrollment Streamlit
-    const enrollReq = http.get(`http://127.0.0.1:${ENROLL_STREAMLIT_PORT}/_stcore/health`, (res) => {
+    // Ping enrollment Streamlit (using correct baseUrlPath)
+    const enrollReq = http.get(`http://127.0.0.1:${ENROLL_STREAMLIT_PORT}/enroll/_stcore/health`, (res) => {
       res.resume();
     });
     enrollReq.on('error', () => {});
     enrollReq.setTimeout(5000, () => enrollReq.destroy());
     
-    // Ping admin Streamlit
-    const adminReq = http.get(`http://127.0.0.1:${ADMIN_STREAMLIT_PORT}/_stcore/health`, (res) => {
+    // Ping admin Streamlit (using correct baseUrlPath)
+    const adminReq = http.get(`http://127.0.0.1:${ADMIN_STREAMLIT_PORT}/admin/_stcore/health`, (res) => {
       res.resume();
     });
     adminReq.on('error', () => {});
@@ -324,8 +325,8 @@ healthServer.listen(port, '0.0.0.0', async () => {
   startEnrollStreamlit();
   startAdminStreamlit();
   await Promise.all([
-    waitForStreamlit(ENROLL_STREAMLIT_PORT, 'Enrollment'),
-    waitForStreamlit(ADMIN_STREAMLIT_PORT, 'Admin')
+    waitForStreamlit(ENROLL_STREAMLIT_PORT, 'Enrollment', '/enroll'),
+    waitForStreamlit(ADMIN_STREAMLIT_PORT, 'Admin', '/admin')
   ]);
   startPrewarmPing();
   loadFullApp();
