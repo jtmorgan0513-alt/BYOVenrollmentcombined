@@ -1441,29 +1441,44 @@ def render_notification_settings_tab() -> None:
 
 def main() -> None:
     """Main entry point for the admin dashboard."""
-    inject_admin_theme_css()
+    try:
+        inject_admin_theme_css()
 
-    records = get_admin_records()
-    pending_count = sum(1 for r in records if r.get("status") == "in_review")
+        try:
+            records = get_admin_records()
+        except Exception as e:
+            st.error(f"Error loading enrollments: {e}")
+            import traceback
+            st.code(traceback.format_exc())
+            records = []
 
-    # Header
-    render_header(pending_count)
+        pending_count = sum(1 for r in records if r.get("status") == "in_review")
 
-    # Top-level tabs
-    tab_enroll, tab_settings = st.tabs(
-        ["📋 Enrollments", "🔔 Notification Settings"])
+        # Header
+        render_header(pending_count)
 
-    with tab_enroll:
-        if not records:
-            st.info(
-                "No enrollments found. Technicians will appear here after submitting enrollment forms."
-            )
-        else:
-            for rec in records:
-                render_record_card(rec)
+        # Top-level tabs
+        tab_enroll, tab_settings = st.tabs(
+            ["📋 Enrollments", "🔔 Notification Settings"])
 
-    with tab_settings:
-        render_notification_settings_tab()
+        with tab_enroll:
+            if not records:
+                st.info(
+                    "No enrollments found. Technicians will appear here after submitting enrollment forms."
+                )
+            else:
+                for rec in records:
+                    try:
+                        render_record_card(rec)
+                    except Exception as e:
+                        st.error(f"Error rendering record {rec.get('id', 'unknown')}: {e}")
+
+        with tab_settings:
+            render_notification_settings_tab()
+    except Exception as e:
+        st.error(f"Dashboard error: {e}")
+        import traceback
+        st.code(traceback.format_exc())
 
 
 if __name__ == "__main__":
