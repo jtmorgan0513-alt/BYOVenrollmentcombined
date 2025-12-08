@@ -991,9 +991,13 @@ def wizard_step_4():
                     
                     st.markdown("""
                     <div style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); 
-                                padding: 1.5rem; border-radius: 12px; text-align: center; margin: 1rem 0;">
-                        <h3 style="color: #2e7d32; margin: 0;">🚗 You're one step closer to transportation freedom!</h3>
-                        <p style="color: #388e3c; margin-top: 0.5rem; margin-bottom: 0;">
+                                padding: 2rem 1.5rem; border-radius: 12px; text-align: center; 
+                                margin: 1rem auto; width: 100%; max-width: 600px; box-sizing: border-box;">
+                        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🚗</div>
+                        <h3 style="color: #2e7d32; margin: 0; font-size: clamp(1.25rem, 4vw, 1.75rem); line-height: 1.3;">
+                            You're one step closer to transportation freedom!
+                        </h3>
+                        <p style="color: #388e3c; margin-top: 0.75rem; margin-bottom: 0; font-size: clamp(0.9rem, 2.5vw, 1rem);">
                             Your BYOV enrollment has been received and is pending review.
                         </p>
                     </div>
