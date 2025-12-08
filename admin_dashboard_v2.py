@@ -318,43 +318,45 @@ def inject_admin_theme_css() -> None:
           margin-left: 0.75rem;
         }
 
-        /* Stats Bar */
+        /* Stats Bar - Mobile First */
         .stats-bar {
-          display: grid;
-          grid-template-columns: 2fr 1.2fr 1.2fr 0.8fr 1fr;
+          display: flex;
+          flex-wrap: wrap;
           background: #f9fafb;
           border-bottom: 1px solid #e5e7eb;
-          overflow-x: auto;
         }
 
         .stat-item {
-          padding: 0.5rem 0.375rem;
+          flex: 1 1 auto;
+          min-width: 60px;
+          padding: 0.5rem 0.25rem;
           text-align: center;
           border-right: 1px solid #e5e7eb;
-          min-width: 0;
+          border-bottom: 1px solid #e5e7eb;
         }
 
         .stat-item:last-child { border-right: none; }
 
         .stat-label {
-          font-size: 0.6rem;
+          font-size: 0.55rem;
           color: #6b7280;
-          margin-bottom: 0.25rem;
+          margin-bottom: 0.2rem;
           text-transform: uppercase;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.01em;
           font-weight: 600;
-          white-space: nowrap;
+          line-height: 1.2;
         }
 
         .stat-value {
-          font-size: 0.7rem;
+          font-size: 0.65rem;
           font-weight: 700;
-          word-break: break-all;
+          word-break: break-word;
+          line-height: 1.3;
         }
 
         .stat-value.green { color: #16a34a; }
         .stat-value.red { color: #ef4444; }
-        .stat-value.mono { font-family: monospace; font-size: 0.65rem; }
+        .stat-value.mono { font-family: monospace; font-size: 0.6rem; }
 
         /* Info Grid */
         .info-grid {
@@ -853,11 +855,11 @@ def render_record_card(record: Dict[str, Any]) -> None:
             <div class="stat-value mono">{record.get("vin", "-")}</div>
           </div>
           <div class="stat-item">
-            <div class="stat-label">Insurance Exp</div>
+            <div class="stat-label">Ins Exp</div>
             <div class="stat-value green">{record.get("insurance_exp", "-")}</div>
           </div>
           <div class="stat-item">
-            <div class="stat-label">Registration Exp</div>
+            <div class="stat-label">Reg Exp</div>
             <div class="stat-value green">{record.get("registration_exp", "-")}</div>
           </div>
           <div class="stat-item">
@@ -865,7 +867,7 @@ def render_record_card(record: Dict[str, Any]) -> None:
             <div class="stat-value">{record.get("photos_count", 0)}</div>
           </div>
           <div class="stat-item">
-            <div class="stat-label">Signature</div>
+            <div class="stat-label">Sig</div>
             <div class="stat-value" style="color:{sig_color}">{sig_text}</div>
           </div>
         </div>
