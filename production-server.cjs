@@ -82,7 +82,7 @@ let enrollStreamlitRestarts = 0;
 let adminStreamlitRestarts = 0;
 const MAX_STREAMLIT_RESTARTS = 5;
 const RESTART_COOLDOWN_MS = 10000;
-const PREWARM_INTERVAL_MS = 30000;
+const PREWARM_INTERVAL_MS = 15000;
 
 function log(message, source = 'production') {
   const time = new Date().toLocaleTimeString('en-US', {
@@ -272,42 +272,36 @@ const healthServer = http.createServer((req, res) => {
   res.end(loadingPage);
 });
 
-function waitForStreamlit(port, name, basePath, maxAttempts = 120, interval = 1000) {
+function waitForStreamlit(port, name, basePath, maxAttempts = 60, interval = 500) {
   return new Promise((resolve) => {
     let attempts = 0;
     const healthPath = `${basePath}/_stcore/health`;
     log(`Waiting for ${name} Streamlit at http://127.0.0.1:${port}${healthPath}...`);
     const check = () => {
       attempts++;
-      if (attempts % 10 === 0) {
+      if (attempts % 20 === 0) {
         log(`${name} Streamlit health check attempt ${attempts}/${maxAttempts}...`);
       }
       const req = http.get(`http://127.0.0.1:${port}${healthPath}`, (res) => {
         if (res.statusCode === 200) {
-          log(`${name} Streamlit is ready on port ${port} after ${attempts} attempts`);
+          log(`${name} Streamlit is ready on port ${port} after ${attempts * interval / 1000}s`);
           resolve(true);
         } else {
-          log(`${name} Streamlit returned status ${res.statusCode}, retrying...`);
           retry();
         }
       });
-      req.on('error', (err) => {
-        if (attempts % 15 === 0) {
-          log(`${name} Streamlit not yet responding: ${err.message}`);
-        }
-        retry();
-      });
-      req.setTimeout(3000, () => { req.destroy(); retry(); });
+      req.on('error', () => retry());
+      req.setTimeout(1500, () => { req.destroy(); retry(); });
     };
     const retry = () => {
       if (attempts >= maxAttempts) {
-        log(`WARNING: ${name} Streamlit not responding after ${maxAttempts} attempts, continuing anyway`);
+        log(`WARNING: ${name} Streamlit not responding after ${maxAttempts * interval / 1000}s, continuing anyway`);
         resolve(false);
       } else {
         setTimeout(check, interval);
       }
     };
-    setTimeout(check, 3000);
+    setTimeout(check, 500);
   });
 }
 
