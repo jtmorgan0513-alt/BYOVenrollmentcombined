@@ -272,32 +272,42 @@ const healthServer = http.createServer((req, res) => {
   res.end(loadingPage);
 });
 
-function waitForStreamlit(port, name, basePath, maxAttempts = 90, interval = 1000) {
+function waitForStreamlit(port, name, basePath, maxAttempts = 120, interval = 1000) {
   return new Promise((resolve) => {
     let attempts = 0;
     const healthPath = `${basePath}/_stcore/health`;
+    log(`Waiting for ${name} Streamlit at http://127.0.0.1:${port}${healthPath}...`);
     const check = () => {
       attempts++;
+      if (attempts % 10 === 0) {
+        log(`${name} Streamlit health check attempt ${attempts}/${maxAttempts}...`);
+      }
       const req = http.get(`http://127.0.0.1:${port}${healthPath}`, (res) => {
         if (res.statusCode === 200) {
-          log(`${name} Streamlit is ready on port ${port}`);
+          log(`${name} Streamlit is ready on port ${port} after ${attempts} attempts`);
           resolve(true);
         } else {
+          log(`${name} Streamlit returned status ${res.statusCode}, retrying...`);
           retry();
         }
       });
-      req.on('error', () => retry());
-      req.setTimeout(2000, () => { req.destroy(); retry(); });
+      req.on('error', (err) => {
+        if (attempts % 15 === 0) {
+          log(`${name} Streamlit not yet responding: ${err.message}`);
+        }
+        retry();
+      });
+      req.setTimeout(3000, () => { req.destroy(); retry(); });
     };
     const retry = () => {
       if (attempts >= maxAttempts) {
-        log(`${name} Streamlit not responding after max attempts, continuing anyway`);
+        log(`WARNING: ${name} Streamlit not responding after ${maxAttempts} attempts, continuing anyway`);
         resolve(false);
       } else {
         setTimeout(check, interval);
       }
     };
-    setTimeout(check, 2000);
+    setTimeout(check, 3000);
   });
 }
 
