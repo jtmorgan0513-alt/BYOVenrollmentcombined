@@ -905,122 +905,125 @@ def wizard_step_4():
             st.session_state.wizard_step = 3
             st.rerun()
     
+    submit_clicked = False
     with col_submit:
-        if st.button("Submit Enrollment", use_container_width=True, type="primary"):
-            with st.spinner("Submitting enrollment..."):
-                try:
-                    record_id = str(uuid.uuid4())[:8]
-                    tech_id = data.get('tech_id', '')
+        submit_clicked = st.button("Submit Enrollment", use_container_width=True, type="primary")
+    
+    if submit_clicked:
+        with st.spinner("Submitting enrollment..."):
+            try:
+                record_id = str(uuid.uuid4())[:8]
+                tech_id = data.get('tech_id', '')
+                
+                folder_path = create_upload_folder(tech_id, record_id)
+                
+                vehicle_paths = save_uploaded_files(vehicle_photos, folder_path, "vehicle")
+                insurance_paths = save_uploaded_files(insurance_docs, folder_path, "insurance")
+                registration_paths = save_uploaded_files(registration_docs, folder_path, "registration")
+                
+                signature_pdf_path = None
+                if not data.get('is_docusign_state') and data.get('signature_image'):
+                    state_abbr = data.get('state_abbr', '')
+                    template_file = STATE_TEMPLATE_MAP.get(state_abbr, DEFAULT_TEMPLATE)
                     
-                    folder_path = create_upload_folder(tech_id, record_id)
+                    pdf_filename = f"signed_policy_{tech_id}_{record_id}.pdf"
+                    signature_pdf_path = os.path.join("pdfs", pdf_filename)
                     
-                    vehicle_paths = save_uploaded_files(vehicle_photos, folder_path, "vehicle")
-                    insurance_paths = save_uploaded_files(insurance_docs, folder_path, "insurance")
-                    registration_paths = save_uploaded_files(registration_docs, folder_path, "registration")
+                    success = generate_signed_pdf(
+                        template_file,
+                        data.get('signature_image', ''),
+                        signature_pdf_path,
+                        employee_name=data.get('full_name', ''),
+                        tech_id=tech_id
+                    )
                     
-                    signature_pdf_path = None
-                    if not data.get('is_docusign_state') and data.get('signature_image'):
-                        state_abbr = data.get('state_abbr', '')
-                        template_file = STATE_TEMPLATE_MAP.get(state_abbr, DEFAULT_TEMPLATE)
-                        
-                        pdf_filename = f"signed_policy_{tech_id}_{record_id}.pdf"
-                        signature_pdf_path = os.path.join("pdfs", pdf_filename)
-                        
-                        success = generate_signed_pdf(
-                            template_file,
-                            data.get('signature_image', ''),
-                            signature_pdf_path,
-                            employee_name=data.get('full_name', ''),
-                            tech_id=tech_id
-                        )
-                        
-                        if not success:
-                            st.error("Failed to generate signed PDF. Please try again.")
-                            return
-                    
-                    enrollment_record = {
-                        'first_name': data.get('first_name', ''),
-                        'last_name': data.get('last_name', ''),
-                        'full_name': data.get('full_name', ''),
-                        'tech_id': tech_id,
-                        'district': data.get('district', ''),
-                        'referred_by': data.get('referred_by', ''),
-                        'state': data.get('state', ''),
-                        'is_new_hire': data.get('is_new_hire', False),
-                        'truck_number': data.get('truck_number', ''),
-                        'industries': data.get('industries', []),
-                        'vin': data.get('vin', ''),
-                        'year': data.get('year', ''),
-                        'make': data.get('make', ''),
-                        'model': data.get('model', ''),
-                        'insurance_exp': data.get('insurance_exp', ''),
-                        'registration_exp': data.get('registration_exp', ''),
-                        'submission_date': datetime.now().isoformat(),
-                        'status': 'pending'
-                    }
-                    
-                    enrollment_id = database.insert_enrollment(enrollment_record)
-                    
-                    for path in vehicle_paths:
-                        database.add_document(enrollment_id, 'vehicle', path)
-                    for path in insurance_paths:
-                        database.add_document(enrollment_id, 'insurance', path)
-                    for path in registration_paths:
-                        database.add_document(enrollment_id, 'registration', path)
-                    if signature_pdf_path:
-                        database.add_document(enrollment_id, 'signature', signature_pdf_path)
-                    
-                    if data.get('is_docusign_state'):
-                        try:
-                            send_docusign_request_hr(enrollment_record, enrollment_id)
-                        except Exception as e:
-                            logging.error(f"DocuSign request failed: {e}")
-                    
+                    if not success:
+                        st.error("Failed to generate signed PDF. Please try again.")
+                        return
+                
+                enrollment_record = {
+                    'first_name': data.get('first_name', ''),
+                    'last_name': data.get('last_name', ''),
+                    'full_name': data.get('full_name', ''),
+                    'tech_id': tech_id,
+                    'district': data.get('district', ''),
+                    'referred_by': data.get('referred_by', ''),
+                    'state': data.get('state', ''),
+                    'is_new_hire': data.get('is_new_hire', False),
+                    'truck_number': data.get('truck_number', ''),
+                    'industries': data.get('industries', []),
+                    'vin': data.get('vin', ''),
+                    'year': data.get('year', ''),
+                    'make': data.get('make', ''),
+                    'model': data.get('model', ''),
+                    'insurance_exp': data.get('insurance_exp', ''),
+                    'registration_exp': data.get('registration_exp', ''),
+                    'submission_date': datetime.now().isoformat(),
+                    'status': 'pending'
+                }
+                
+                enrollment_id = database.insert_enrollment(enrollment_record)
+                
+                for path in vehicle_paths:
+                    database.add_document(enrollment_id, 'vehicle', path)
+                for path in insurance_paths:
+                    database.add_document(enrollment_id, 'insurance', path)
+                for path in registration_paths:
+                    database.add_document(enrollment_id, 'registration', path)
+                if signature_pdf_path:
+                    database.add_document(enrollment_id, 'signature', signature_pdf_path)
+                
+                if data.get('is_docusign_state'):
                     try:
-                        send_email_notification(enrollment_record)
+                        send_docusign_request_hr(enrollment_record, enrollment_id)
                     except Exception as e:
-                        logging.error(f"Email notification failed: {e}")
-                    
-                    st.session_state.wizard_data = {}
-                    st.session_state.wizard_step = 1
-                    
-                    show_money_rain()
-                    
-                    st.success("🎉 Enrollment submitted successfully!")
-                    st.balloons()
-                    
-                    st.markdown("""
-                    <div style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); 
-                                padding: 2rem 1.5rem; border-radius: 12px; text-align: center; 
-                                margin: 1rem auto; width: 100%; max-width: 600px; box-sizing: border-box;">
-                        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🚗</div>
-                        <h3 style="color: #2e7d32; margin: 0; font-size: clamp(1.25rem, 4vw, 1.75rem); line-height: 1.3;">
-                            You're one step closer to transportation freedom!
-                        </h3>
-                        <p style="color: #388e3c; margin-top: 0.75rem; margin-bottom: 0; font-size: clamp(0.9rem, 2.5vw, 1rem);">
-                            Your BYOV enrollment has been received and is pending review.
-                        </p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    if data.get('is_docusign_state'):
-                        st.info("""
-                        **Next Steps:**
-                        1. Look out for a **text message from Crystal Cash** with a DocuSign request
-                        2. Sign the policy document electronically via DocuSign
-                        3. Wait for admin approval
-                        """)
-                    else:
-                        st.info("""
-                        **Next Steps:**
-                        Your enrollment is now pending review. You will receive an email 
-                        once your enrollment has been approved.
-                        """)
-                    
+                        logging.error(f"DocuSign request failed: {e}")
+                
+                try:
+                    send_email_notification(enrollment_record)
                 except Exception as e:
-                    st.error(f"Error submitting enrollment: {str(e)}")
-                    import traceback
-                    logging.error(f"Enrollment submission error: {traceback.format_exc()}")
+                    logging.error(f"Email notification failed: {e}")
+                
+                st.session_state.wizard_data = {}
+                st.session_state.wizard_step = 1
+                
+                show_money_rain()
+                
+                st.success("🎉 Enrollment submitted successfully!")
+                st.balloons()
+                
+                st.markdown("""
+                <div style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); 
+                            padding: 2rem 1.5rem; border-radius: 12px; text-align: center; 
+                            margin: 1rem auto; width: 100%; max-width: 600px; box-sizing: border-box;">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🚗</div>
+                    <h3 style="color: #2e7d32; margin: 0; font-size: clamp(1.25rem, 4vw, 1.75rem); line-height: 1.3;">
+                        You're one step closer to transportation freedom!
+                    </h3>
+                    <p style="color: #388e3c; margin-top: 0.75rem; margin-bottom: 0; font-size: clamp(0.9rem, 2.5vw, 1rem);">
+                        Your BYOV enrollment has been received and is pending review.
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                if data.get('is_docusign_state'):
+                    st.info("""
+                    **Next Steps:**
+                    1. Look out for a **text message from Crystal Cash** with a DocuSign request
+                    2. Sign the policy document electronically via DocuSign
+                    3. Wait for admin approval
+                    """)
+                else:
+                    st.info("""
+                    **Next Steps:**
+                    Your enrollment is now pending review. You will receive an email 
+                    once your enrollment has been approved.
+                    """)
+                
+            except Exception as e:
+                st.error(f"Error submitting enrollment: {str(e)}")
+                import traceback
+                logging.error(f"Enrollment submission error: {traceback.format_exc()}")
 
 
 def render_docusign_confirmation_page(token: str):
